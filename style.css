@@ -20,7 +20,15 @@
   text-align: center;
 }
 .loading-shawarma {
-  margin-bottom: 20px;
+  width: 200px;
+  height: 200px;
+  margin-bottom: 16px;
+  object-fit: contain;
+  animation: shawarma-pulse 2s ease-in-out infinite;
+}
+@keyframes shawarma-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 .shawarma-rotate {
   transform-origin: 60px 60px;
@@ -783,6 +791,56 @@ body {
 /* Responsive fine-tune */
 @media (max-width: 480px) {
   .app-container { box-shadow: none; }
+}
+
+/* ─── Footer ─────────────────────────────────────── */
+.app-footer {
+  margin-top: 24px;
+  padding: 24px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.footer-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.footer-section svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.footer-section strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+.footer-section p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.footer-phone {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  direction: ltr;
+  unicode-bidi: bidi-override;
+}
+.footer-phone:hover {
+  text-decoration: underline;
+}
+.footer-brand {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 /* ─── PWA Install Banner ─────────────────────────── */

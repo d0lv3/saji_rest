@@ -6,11 +6,11 @@
 // ══════════════════════════════════════════════════════════════
 // ⬇️  PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE  ⬇️
 // ══════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbxzHrqOx57QyZGMqEzl-8-QV0xxQlOWJfV1m7ZGFnKV2S1oHqjnLjlef2ohoyYHSQbGnA/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwsHnVxOr4QFtVqZnJQz8Kdx_rLyUwPsTV4LDpRxT-ahTlGiNKV4g2-1hG8DDLZI71C/exec';
 // ══════════════════════════════════════════════════════════════
 
 // ─── Constants ───────────────────────────────────────────────
-const DELIVERY_FEE = 1500;
+const DELIVERY_FEE = 0;
 const MIN_ORDER = 3000;
 const CATEGORIES = ['الصاج', 'الكص', 'البركر', 'الريزو', 'الفنكر', 'المشاريب'];
 const CATEGORY_ICONS = {

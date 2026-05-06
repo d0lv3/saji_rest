@@ -170,7 +170,8 @@
   togglePass.addEventListener('click', () => {
     const isPass = passInput.type === 'password';
     passInput.type = isPass ? 'text' : 'password';
-    togglePass.textContent = isPass ? '🙈' : '👁';
+    togglePass.querySelector('.eye-open').style.display = isPass ? 'none' : 'block';
+    togglePass.querySelector('.eye-closed').style.display = isPass ? 'block' : 'none';
   });
 
   // Check if already logged in
