@@ -95,7 +95,7 @@ body {
 }
 .toggle-pass {
   position: absolute;
-  right: 14px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
