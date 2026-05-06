@@ -842,6 +842,70 @@ body {
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
+.footer-insta {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.footer-insta:hover { text-decoration: underline; }
+
+/* ─── Restaurant Closed Overlay ──────────────────── */
+.closed-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255,253,248,0.97);
+  z-index: 7000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.closed-content h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 16px 0 8px;
+}
+.closed-content p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+.closed-content .closed-sub {
+  margin-top: 16px;
+  font-size: 15px;
+  color: var(--text-dark);
+}
+
+/* ─── Promo Row Fix ──────────────────────────────── */
+.promo-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.promo-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.promo-row input:focus { border-color: var(--primary); }
+.promo-row button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.promo-row button:hover { background: var(--primary-hover); }
 
 /* ─── PWA Install Banner ─────────────────────────── */
 .install-banner {

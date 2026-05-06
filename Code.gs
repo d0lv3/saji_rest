@@ -58,7 +58,7 @@ function initializeSheets() {
       ['fries_small','قدح فنكر صغير','قدح فنكر صغير','الفنكر',1000,'asstes/dishes_assets/fries.png',true,'[]'],
       ['fries_cheese','فنكر بالجبن','فنكر بالجبن','الفنكر',1500,'asstes/dishes_assets/fries_w_cheese.png',true,'[]'],
       ['fries_large','قدح فنكر كبير','قدح فنكر كبير','الفنكر',2000,'asstes/dishes_assets/fries_plate.png',true,'[]'],
-      ['fries_large_cheese','قدح فنكر كبير بالجبن','قدح فنكر كبير بالجبن','الفنكر',2500,'asstes/dishes_assets/fries_plate_w_cheese.png',true,'[]'],
+      ['fries_large_cheese','قدح فنكر كبير بالجبن','قدح فنكر كبير بالجبن','الفنكر',2500,'asstes/dishes_assets/fries_plate_w_cheese.jpg',true,'[]'],
       ['water','ماء','مياه معدنية','المشاريب',250,'asstes/dishes_assets/wbottle.png',true,'[]'],
       ['pepsi','بيبسي','مشروب غازي بارد','المشاريب',500,'asstes/dishes_assets/pepsi.png',true,'[]'],
       ['grape_juice','عصير زبيب','عصير زبيب طبيعي','المشاريب',500,'asstes/dishes_assets/brjuice.png',true,'[]'],
@@ -96,6 +96,7 @@ function doGet(e) {
       case 'getPromoCodes': result = getPromoCodesData(); break;
       case 'validatePromo': result = validatePromoCode(e.parameter.code); break;
       case 'adminLogin':  result = validateAdminLogin(e.parameter.pass); break;
+      case 'getStatus':   result = getRestaurantStatus(); break;
       default: result = { error: 'Unknown action' };
     }
   } catch(err) {
@@ -114,6 +115,7 @@ function doPost(e) {
       case 'saveOrder':   result = saveOrderData(data.order); break;
       case 'updateOrder': result = updateOrderStatus(data.orderId, data.status); break;
       case 'toggleStock': result = toggleItemStock(data.itemId, data.inStock); break;
+      case 'setStatus':   result = setRestaurantStatus(data.isOpen); break;
       default: result = { error: 'Unknown action' };
     }
   } catch(err) {
@@ -238,4 +240,17 @@ function validateAdminLogin(password) {
     return { success: true, token: Utilities.getUuid() };
   }
   return { success: false };
+}
+
+// ─── Restaurant Status ────────────────────────────────────────
+function getRestaurantStatus() {
+  var props = PropertiesService.getScriptProperties();
+  var isOpen = props.getProperty('restaurant_open');
+  return { success: true, isOpen: isOpen !== 'false' };
+}
+
+function setRestaurantStatus(isOpen) {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('restaurant_open', isOpen ? 'true' : 'false');
+  return { success: true, isOpen: isOpen };
 }

@@ -210,7 +210,33 @@
     lastOrderCount = orders.length;
     await renderOrders();
     await renderMenuTable();
+    await loadRestaurantStatus();
+    setupStatusToggle();
     startPolling();
+  }
+
+  // ─── Restaurant Status ──────────────────────────────────────
+  async function loadRestaurantStatus() {
+    const result = await apiGet('getStatus');
+    if (result && result.success) {
+      const sw = $('#statusSwitch');
+      sw.checked = result.isOpen;
+      updateStatusLabel(result.isOpen);
+    }
+  }
+
+  function updateStatusLabel(isOpen) {
+    const label = $('#statusLabel');
+    label.textContent = isOpen ? 'مفتوح' : 'مغلق';
+    label.style.color = isOpen ? 'var(--success)' : 'var(--danger)';
+  }
+
+  function setupStatusToggle() {
+    $('#statusSwitch').addEventListener('change', async (e) => {
+      const isOpen = e.target.checked;
+      updateStatusLabel(isOpen);
+      await apiPost({ action: 'setStatus', isOpen: isOpen });
+    });
   }
 
   // Check session on load

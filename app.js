@@ -96,6 +96,13 @@
       menuData = menu;
       renderMenuFromCache();
     }
+    // Check restaurant status
+    try {
+      const status = await apiGet('getStatus');
+      if (status && status.success && !status.isOpen) {
+        document.getElementById('closedOverlay').style.display = 'flex';
+      }
+    } catch(e) {}
     // Hide loading screen
     const loader = document.getElementById('loadingScreen');
     if (loader) loader.classList.add('hidden');
@@ -120,23 +127,48 @@
     `;
   }
 
-  // ─── Intersection Observer for Active Category ──────────────
+  // ─── Scroll-based Active Category Detection ─────────────────
   function setupCategoryObserver() {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const cat = entry.target.id.replace('section-', '');
-          $$('.cat-pill').forEach(p => {
-            p.classList.toggle('active', p.dataset.cat === cat);
-          });
-        }
-      });
-    }, { threshold: 0.3, rootMargin: '-100px 0px -60% 0px' });
-
-    CATEGORIES.forEach(cat => {
-      const el = document.getElementById('section-' + cat);
-      if (el) observer.observe(el);
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(() => {
+          updateActiveCategory();
+          ticking = false;
+        });
+      }
     });
+  }
+
+  function updateActiveCategory() {
+    const bar = document.querySelector('.categories-bar');
+    if (!bar) return;
+    const offset = bar.getBoundingClientRect().bottom + 20;
+    let activecat = CATEGORIES[0];
+
+    for (const cat of CATEGORIES) {
+      const el = document.getElementById('section-' + cat);
+      if (!el) continue;
+      const top = el.getBoundingClientRect().top;
+      if (top <= offset) activecat = cat;
+    }
+
+    const pills = $$('.cat-pill');
+    let changed = false;
+    pills.forEach(p => {
+      const isActive = p.dataset.cat === activecat;
+      if (isActive && !p.classList.contains('active')) changed = true;
+      p.classList.toggle('active', isActive);
+    });
+    if (changed) scrollActivePillIntoView();
+  }
+
+  function scrollActivePillIntoView() {
+    const active = document.querySelector('.cat-pill.active');
+    if (active) {
+      active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
   }
 
   // ─── Item Modal ─────────────────────────────────────────────
