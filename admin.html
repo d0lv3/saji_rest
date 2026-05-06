@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة التحكم — مطعم صاجي</title>
+  <meta name="description" content="لوحة تحكم مطعم صاجي لإدارة الطلبات والقائمة">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div class="admin-login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="login-logo">
+    <h2>لوحة التحكم</h2>
+    <p class="login-subtitle">أدخل كلمة المرور للمتابعة</p>
+    <form id="loginForm" autocomplete="off">
+      <div class="login-input-wrap">
+        <input type="password" id="adminPassword" placeholder="كلمة المرور" autocomplete="current-password" required>
+        <button type="button" class="toggle-pass" id="togglePass">👁</button>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button type="submit" class="login-btn" id="loginBtn">دخول</button>
+    </form>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="admin-header">
+  <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="logo">
+  <h1>لوحة التحكم</h1>
+  <div class="header-badge" id="orderCountBadge">0 طلبات نشطة</div>
+</header>
+
+<!-- Tabs -->
+<nav class="admin-tabs">
+  <button class="admin-tab active" data-tab="orders" id="tabOrders">📋 الطلبات</button>
+  <button class="admin-tab" data-tab="menu" id="tabMenu">🍽️ إدارة القائمة</button>
+</nav>
+
+<!-- Content -->
+<div class="admin-content">
+
+  <!-- ═══ ORDERS TAB ═══ -->
+  <div class="orders-section-admin active" id="ordersSection">
+    <div class="orders-grid">
+      <div class="orders-column col-pending">
+        <h3>⏳ قيد الانتظار <span class="count" id="pendingCount">0</span></h3>
+        <div class="orders-list" id="pendingOrders"></div>
+      </div>
+      <div class="orders-column col-cooking">
+        <h3>🔥 جاري التحضير <span class="count" id="cookingCount">0</span></h3>
+        <div class="orders-list" id="cookingOrders"></div>
+      </div>
+      <div class="orders-column col-delivery">
+        <h3>🚗 في الطريق <span class="count" id="deliveryCount">0</span></h3>
+        <div class="orders-list" id="deliveryOrders"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MENU TAB ═══ -->
+  <div class="menu-section-admin" id="menuSection">
+    <div class="menu-table">
+      <div class="menu-table-header">
+        <span>الصنف</span>
+        <span>التصنيف</span>
+        <span>السعر</span>
+        <span>متوفر</span>
+      </div>
+      <div id="menuTableBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="data.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

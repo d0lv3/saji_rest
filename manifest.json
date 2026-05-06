@@ -1,0 +1,26 @@
+{
+  "name": "مطعم صاجي",
+  "short_name": "صاجي",
+  "description": "اطلب ألذ الأطباق من مطعم صاجي",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#FFFDF8",
+  "theme_color": "#FF6B00",
+  "dir": "rtl",
+  "lang": "ar",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "asstes/saji_logo_bg_erased.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "asstes/saji_logo_bg_erased.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

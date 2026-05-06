@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مطعم صاجي — اطلب الآن</title>
+  <meta name="description" content="اطلب ألذ الساندويشات والأطباق العربية من مطعم صاجي. توصيل سريع!">
+  <meta name="theme-color" content="#FF6B00">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="asstes/saji_logo_bg_erased.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══ LOADING SCREEN ═══ -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-content">
+    <svg class="loading-shawarma" viewBox="0 0 120 120" width="100" height="100">
+      <!-- Wrap/shawarma shape -->
+      <g class="shawarma-rotate">
+        <path d="M60 15 C45 15, 25 30, 22 55 C19 80, 35 105, 60 105 C85 105, 101 80, 98 55 C95 30, 75 15, 60 15Z" fill="none" stroke="#FF6B00" stroke-width="3" stroke-linecap="round"/>
+        <path d="M42 35 C42 35, 50 28, 60 28 C70 28, 78 35, 78 35" fill="none" stroke="#FF6B00" stroke-width="2.5" opacity="0.8"/>
+        <path d="M35 50 C35 50, 48 42, 60 42 C72 42, 85 50, 85 50" fill="none" stroke="#FF6B00" stroke-width="2" opacity="0.6"/>
+        <path d="M30 65 C30 65, 45 57, 60 57 C75 57, 90 65, 90 65" fill="none" stroke="#FF6B00" stroke-width="2" opacity="0.5"/>
+        <path d="M33 80 C33 80, 46 72, 60 72 C74 72, 87 80, 87 80" fill="none" stroke="#FF6B00" stroke-width="2" opacity="0.4"/>
+        <!-- Steam lines -->
+        <path class="steam steam1" d="M50 12 Q48 5, 50 0" fill="none" stroke="#FF6B00" stroke-width="1.5" opacity="0.4"/>
+        <path class="steam steam2" d="M60 10 Q58 3, 60 -3" fill="none" stroke="#FF6B00" stroke-width="1.5" opacity="0.3"/>
+        <path class="steam steam3" d="M70 12 Q72 5, 70 0" fill="none" stroke="#FF6B00" stroke-width="1.5" opacity="0.4"/>
+      </g>
+    </svg>
+    <p class="loading-text">جاري تحميل القائمة...</p>
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<div class="app-container" id="appContainer">
+
+  <!-- ═══ MENU SCREEN ═══ -->
+  <div class="screen active" id="menuScreen">
+
+    <!-- Header -->
+    <header class="app-header">
+      <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="logo">
+      <div class="brand"></div>
+      <div class="header-status">مفتوح</div>
+    </header>
+
+    <!-- Category Pills -->
+    <nav class="categories-bar" id="categoriesBar">
+      <div class="categories-scroll" id="categoriesScroll"></div>
+    </nav>
+
+    <!-- Menu Sections -->
+    <main id="menuContent"></main>
+
+    <div style="height:100px"></div>
+  </div>
+
+  <!-- ═══ CHECKOUT SCREEN ═══ -->
+  <div class="screen" id="checkoutScreen">
+    <div class="checkout-view">
+      <button class="back-btn" id="backToMenu">→ العودة للقائمة</button>
+      <h2>إتمام الطلب</h2>
+
+      <form id="checkoutForm" novalidate>
+        <div class="form-group">
+          <label for="paymentMethod">طريقة الدفع</label>
+          <input type="text" id="paymentMethod" value="الدفع عند الاستلام" readonly class="locked-field">
+        </div>
+
+        <div class="form-group">
+          <label for="customerAddress">العنوان <span style="color:var(--danger)">*</span></label>
+          <textarea id="customerAddress" rows="2" placeholder="أدخل عنوان التوصيل بالتفصيل..." required></textarea>
+          <div class="error-text" id="addressError">العنوان مطلوب</div>
+        </div>
+
+        <div class="form-group">
+          <label for="customerPhone">رقم الهاتف <span style="color:var(--danger)">*</span></label>
+          <input type="tel" id="customerPhone" placeholder="07XXXXXXXXX" required maxlength="11">
+          <div class="error-text" id="phoneError">رقم الهاتف غير صالح. يجب أن يتكون من 11 رقماً ويبدأ بـ 077 أو 078 أو 075</div>
+        </div>
+
+        <div class="form-group">
+          <label for="customerName">الاسم <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="customerName" placeholder="اسمك" required>
+          <div class="error-text" id="nameError">الاسم مطلوب</div>
+        </div>
+
+        <!-- Order Summary in Checkout -->
+        <div id="checkoutSummary" style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);"></div>
+
+        <button type="submit" class="checkout-btn" id="submitOrder">تأكيد الطلب</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ TRACKING SCREEN ═══ -->
+  <div class="screen" id="trackingScreen">
+    <div class="tracking-view">
+      <div class="success-icon">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <circle cx="36" cy="36" r="34" stroke="#FF6B00" stroke-width="3" fill="#FFF3E8"/>
+          <path d="M22 36L32 46L50 26" stroke="#FF6B00" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h2>تم إرسال طلبك بنجاح!</h2>
+      <p class="order-id" id="trackingOrderId"></p>
+
+      <div class="timeline" id="orderTimeline">
+        <div class="timeline-step active" data-step="pending">
+          <div class="step-indicator">
+            <div class="step-dot">1</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-content">
+            <h4>قيد الانتظار</h4>
+            <p>تم استلام طلبك</p>
+          </div>
+        </div>
+        <div class="timeline-step" data-step="cooking">
+          <div class="step-indicator">
+            <div class="step-dot">2</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-content">
+            <h4>جاري التحضير</h4>
+            <p>يتم تحضير طلبك الآن</p>
+          </div>
+        </div>
+        <div class="timeline-step" data-step="delivery">
+          <div class="step-indicator">
+            <div class="step-dot">3</div>
+          </div>
+          <div class="step-content">
+            <h4>في الطريق</h4>
+            <p>طلبك في الطريق إليك</p>
+          </div>
+        </div>
+      </div>
+
+      <button class="checkout-btn" id="newOrderBtn" style="margin-top:32px; max-width:300px; margin-left:auto; margin-right:auto;">
+        طلب جديد
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ ITEM DETAIL MODAL ═══ -->
+<div class="modal-overlay" id="itemModal">
+  <div class="modal-sheet" id="modalSheet">
+    <div class="modal-handle"></div>
+    <div id="modalImageContainer"></div>
+    <div class="modal-body">
+      <h2 id="modalItemName"></h2>
+      <p class="modal-desc" id="modalItemDesc"></p>
+      <div class="modal-price" id="modalItemPrice"></div>
+
+      <div class="addons-section" id="addonsSection">
+        <h4>إضافات</h4>
+        <div id="addonsList"></div>
+      </div>
+
+      <div class="notes-section">
+        <h4>ملاحظات خاصة للطبّاخ</h4>
+        <textarea id="modalNotes" placeholder="مثال: بدون بصل، حار جداً..."></textarea>
+      </div>
+
+      <div class="qty-row">
+        <span style="font-weight:600">الكمية</span>
+        <div class="qty-controls">
+          <button type="button" class="qty-btn" id="qtyMinus">−</button>
+          <span class="qty-value" id="qtyValue">1</span>
+          <button type="button" class="qty-btn" id="qtyPlus">+</button>
+        </div>
+      </div>
+
+      <button type="button" class="modal-add-btn" id="modalAddToCart">
+        <span>أضف إلى السلة</span>
+        <span id="modalTotalPrice"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CART DRAWER ═══ -->
+<div class="cart-overlay" id="cartOverlay"></div>
+<div class="cart-drawer" id="cartDrawer">
+  <div class="cart-header">
+    <h2>🛒 سلة الطلبات</h2>
+    <button class="cart-close" id="cartClose">✕</button>
+  </div>
+  <div class="cart-body" id="cartBody"></div>
+  <div class="cart-footer" id="cartFooter" style="display:none">
+    <div class="promo-row">
+      <input type="text" id="promoInput" placeholder="كود الخصم">
+      <button type="button" id="promoApply">تطبيق</button>
+    </div>
+    <div class="promo-msg" id="promoMsg"></div>
+    <div id="cartSummaryRows"></div>
+    <button type="button" class="checkout-btn" id="goCheckout" disabled>المتابعة للدفع</button>
+    <div class="min-order-msg" id="minOrderMsg"></div>
+  </div>
+</div>
+
+<!-- ═══ FLOATING CART BUTTON ═══ -->
+<button class="floating-cart" id="floatingCart">
+  <span>🛒 عرض السلة</span>
+  <span id="floatingCartTotal"></span>
+  <span class="cart-badge" id="floatingCartBadge">0</span>
+</button>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+
+<!-- ═══ PWA INSTALL BANNER ═══ -->
+<div class="install-banner" id="installBanner">
+  <div class="install-banner-content">
+    <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="install-logo">
+    <div class="install-text">
+      <strong>أضف صاجي لشاشتك الرئيسية</strong>
+      <p>وصول أسرع بدون متصفح!</p>
+    </div>
+  </div>
+  <div class="install-actions">
+    <button class="install-btn" id="installBtn">تثبيت</button>
+    <button class="install-dismiss" id="installDismiss">لاحقاً</button>
+  </div>
+</div>
+
+<script>
+// ─── Service Worker Registration ──────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(function(){});
+}
+
+// ─── PWA Install Prompt ───────────────────────────────────
+(function() {
+  var banner = document.getElementById('installBanner');
+  var installBtn = document.getElementById('installBtn');
+  var dismissBtn = document.getElementById('installDismiss');
+  var deferredPrompt = null;
+
+  // Don't show if already dismissed or already installed
+  if (localStorage.getItem('pwa_dismissed') || window.matchMedia('(display-mode: standalone)').matches) {
+    return;
+  }
+
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  var isAndroid = /Android/.test(navigator.userAgent);
+  var isMobile = isIOS || isAndroid;
+
+  if (!isMobile) return;
+
+  // Android: catch native install prompt
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    showBanner();
+  });
+
+  // iOS: show custom instructions
+  if (isIOS) {
+    var isInStandalone = window.navigator.standalone;
+    if (!isInStandalone) {
+      installBtn.textContent = 'كيف؟';
+      setTimeout(showBanner, 2000);
+    }
+  }
+
+  function showBanner() {
+    banner.classList.add('visible');
+  }
+
+  installBtn.addEventListener('click', function() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
+      banner.classList.remove('visible');
+    } else if (isIOS) {
+      // Show iOS instructions
+      banner.querySelector('.install-text').innerHTML =
+        '<strong>لتثبيت التطبيق:</strong>' +
+        '<p>اضغط على <span style="font-size:18px">⬆️</span> (مشاركة) ثم <strong>"إضافة إلى الشاشة الرئيسية"</strong></p>';
+      installBtn.style.display = 'none';
+    }
+  });
+
+  dismissBtn.addEventListener('click', function() {
+    banner.classList.remove('visible');
+    localStorage.setItem('pwa_dismissed', '1');
+  });
+})();
+</script>
+</body>
+</html>

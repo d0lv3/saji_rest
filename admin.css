@@ -1,0 +1,396 @@
+/* ============================================================
+   admin.css — Admin Dashboard Styles for مطعم صاجي
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@100;200;300;400;500;600;700&display=swap');
+
+:root {
+  --primary: #FF6B00;
+  --primary-hover: #e66000;
+  --primary-light: #FFF3E8;
+  --bg: #FFFDF8;
+  --surface: #FFF9F0;
+  --text-dark: #1A1A1A;
+  --text-muted: #757575;
+  --text-light: #B0B0B0;
+  --border: #EAEAEA;
+  --success: #27AE60;
+  --danger: #E74C3C;
+  --warning: #F39C12;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 999px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  background: var(--surface);
+  color: var(--text-dark);
+  line-height: 1.6;
+}
+
+/* ─── Admin Login ──────────────────────────────── */
+.admin-login-overlay {
+  position: fixed;
+  inset: 0;
+  background: #FFFDF8;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.admin-login-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.login-card {
+  width: 90%;
+  max-width: 340px;
+  text-align: center;
+}
+.login-logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 24px;
+  object-fit: contain;
+}
+.login-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-dark);
+}
+.login-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+.login-input-wrap {
+  position: relative;
+  margin-bottom: 16px;
+}
+.login-input-wrap input {
+  width: 100%;
+  padding: 14px 48px 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.login-input-wrap input:focus {
+  border-color: var(--primary);
+  background: #fff;
+}
+.login-input-wrap input.error {
+  border-color: var(--danger);
+}
+.toggle-pass {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.toggle-pass:hover { opacity: 0.7; }
+.login-error {
+  font-size: 12px;
+  color: var(--danger);
+  min-height: 18px;
+  margin-bottom: 8px;
+}
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.login-btn:hover { background: var(--primary-hover); }
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* ─── Admin Layout ─────────────────────────────── */
+.admin-header {
+  background: var(--bg);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.admin-header .logo { height: 36px; }
+.admin-header h1 { font-size: 20px; font-weight: 700; flex: 1; }
+.admin-header .header-badge {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Tabs */
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+}
+.admin-tab {
+  padding: 14px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+.admin-tab:hover { color: var(--text-dark); }
+.admin-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.admin-content { padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
+
+/* ─── Orders Section ────────────────────────────── */
+.orders-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.orders-column h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.orders-column h3 .count {
+  background: var(--surface);
+  color: var(--text-muted);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+}
+.col-pending h3 { color: var(--warning); }
+.col-cooking h3 { color: var(--primary); }
+.col-delivery h3 { color: var(--success); }
+.orders-list { display: flex; flex-direction: column; gap: 12px; min-height: 200px; }
+
+/* Order Card */
+.order-card {
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.order-card:hover { box-shadow: var(--shadow-md); }
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.order-card-header .order-num { font-size: 12px; font-weight: 700; color: var(--primary); }
+.order-card-header .order-time { font-size: 11px; color: var(--text-muted); }
+.order-card-body { font-size: 13px; }
+.order-card-body .order-field { margin-bottom: 6px; display: flex; gap: 6px; }
+.order-card-body .order-field .field-label { color: var(--text-muted); min-width: 60px; flex-shrink: 0; }
+.order-card-body .order-items { margin: 8px 0; padding: 10px; background: var(--surface); border-radius: var(--radius-sm); }
+.order-card-body .order-items li { font-size: 12px; margin-bottom: 4px; list-style: none; }
+.order-card-body .order-items li .item-addons { color: var(--text-muted); font-size: 11px; }
+.order-card-body .order-items li .item-notes { color: var(--warning); font-size: 11px; font-style: italic; }
+.order-card-total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.order-card-total .total-val { color: var(--primary); }
+.order-actions { margin-top: 12px; display: flex; gap: 8px; }
+.order-action-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.order-action-btn.cooking { background: var(--primary); color: #fff; }
+.order-action-btn.cooking:hover { background: var(--primary-hover); }
+.order-action-btn.delivery { background: var(--success); color: #fff; }
+.order-action-btn.delivery:hover { background: #219653; }
+.order-action-btn.done { background: var(--text-dark); color: #fff; }
+
+/* ─── Menu Management ───────────────────────────── */
+.menu-section-admin { display: none; }
+.menu-section-admin.active { display: block; }
+.orders-section-admin { display: none; }
+.orders-section-admin.active { display: block; }
+
+.menu-table {
+  width: 100%;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+.menu-table-header {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 100px;
+  padding: 14px 20px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.menu-table-row {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 100px;
+  padding: 14px 20px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.menu-table-row:hover { background: var(--surface); }
+.menu-table-row .item-name { font-weight: 600; }
+.menu-table-row .item-cat { color: var(--text-muted); font-size: 12px; }
+.menu-table-row .item-price-cell { color: var(--primary); font-weight: 600; }
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--danger);
+  border-radius: 13px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  right: 3px;
+  transition: transform 0.3s;
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--success); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(-22px); }
+
+/* ─── Responsive ─────────────────────────────────── */
+@media (max-width: 900px) {
+  .orders-grid { grid-template-columns: 1fr; }
+  .admin-content { padding: 16px; }
+  .admin-header { padding: 12px 16px; }
+  .admin-header h1 { font-size: 17px; }
+  .admin-tabs { padding: 0 12px; }
+  .admin-tab { padding: 12px 16px; font-size: 13px; }
+  .menu-table-header,
+  .menu-table-row { grid-template-columns: 2fr 1fr 80px; }
+  .menu-table-header > :nth-child(2),
+  .menu-table-row > :nth-child(2) { display: none; }
+}
+
+@media (max-width: 480px) {
+  .admin-header {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .admin-header .logo { height: 28px; }
+  .admin-header h1 { font-size: 15px; }
+  .admin-header .header-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+  .admin-tabs {
+    padding: 0 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-tab {
+    padding: 10px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .admin-content { padding: 12px; }
+  .orders-column h3 { font-size: 14px; }
+  .order-card { padding: 12px; }
+  .order-card-header .order-num { font-size: 11px; }
+  .order-card-body { font-size: 12px; }
+  .order-card-body .order-items { padding: 8px; }
+  .order-card-total { font-size: 13px; }
+  .order-actions { flex-direction: column; }
+  .order-action-btn { font-size: 12px; padding: 9px; }
+  .menu-table-header,
+  .menu-table-row {
+    grid-template-columns: 1fr auto 64px;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  .menu-table-header > :nth-child(2),
+  .menu-table-row > :nth-child(2) { display: none; }
+  .toggle-switch { width: 42px; height: 24px; }
+  .toggle-slider::before { width: 18px; height: 18px; }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(-18px); }
+
+  /* Login mobile */
+  .login-card { max-width: 300px; }
+  .login-logo { width: 60px; height: 60px; margin-bottom: 20px; }
+  .login-card h2 { font-size: 18px; }
+  .login-input-wrap input { padding: 12px 44px 12px 14px; font-size: 14px; }
+  .login-btn { padding: 12px; font-size: 14px; }
+}
