@@ -46,8 +46,16 @@
   }
 
   // ─── Render Orders ──────────────────────────────────────────
+  let _lastOrdersHash = '';
+
   async function renderOrders() {
     const orders = await getOrders();
+
+    // Quick hash to check if data actually changed
+    const hash = JSON.stringify(orders.map(o => o.id + ':' + o.status));
+    if (hash === _lastOrdersHash) return; // No change — skip DOM work
+    _lastOrdersHash = hash;
+
     const pending = orders.filter(o => o.status === 'pending');
     const cooking = orders.filter(o => o.status === 'cooking');
     const delivery = orders.filter(o => o.status === 'delivery');
@@ -59,7 +67,7 @@
     const activeCount = pending.length + cooking.length + delivery.length;
     $('#orderCountBadge').textContent = activeCount + ' طلبات نشطة';
 
-    const emptyMsg = '<p style="color:var(--text-light);font-size:13px;text-align:center;padding:40px 0;">لا توجد طلبات</p>';
+    const emptyMsg = '<p style="color:var(--text-muted);font-size:13px;text-align:center;padding:40px 0;">لا توجد طلبات</p>';
 
     $('#pendingOrders').innerHTML = pending.length ? pending.map(o => renderOrderCard(o, 'pending')).join('') : emptyMsg;
     $('#cookingOrders').innerHTML = cooking.length ? cooking.map(o => renderOrderCard(o, 'cooking')).join('') : emptyMsg;
@@ -77,6 +85,7 @@
         btn.disabled = true;
         btn.textContent = '...جاري التحديث';
         await updateOrder(btn.dataset.orderId, btn.dataset.action);
+        _lastOrdersHash = ''; // Force re-render after status change
         await renderOrders();
       });
     });
@@ -155,7 +164,7 @@
 
   // ─── Polling ────────────────────────────────────────────────
   function startPolling() {
-    setInterval(() => { renderOrders(); }, 5000);
+    setInterval(() => { renderOrders(); }, 3000);
   }
 
   // ─── Login ──────────────────────────────────────────────────
@@ -206,11 +215,17 @@
 
   // ─── Init ───────────────────────────────────────────────────
   async function startDashboard() {
-    const orders = await getOrders();
-    lastOrderCount = orders.length;
+    // Load orders + menu + status all in parallel
+    const [ordersResult] = await Promise.allSettled([
+      getOrders(),
+      renderMenuTable(),
+      loadRestaurantStatus(),
+    ]);
+
+    if (ordersResult.status === 'fulfilled') {
+      lastOrderCount = ordersResult.value.length;
+    }
     await renderOrders();
-    await renderMenuTable();
-    await loadRestaurantStatus();
     setupStatusToggle();
     startPolling();
   }

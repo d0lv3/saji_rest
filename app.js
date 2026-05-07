@@ -15,6 +15,31 @@
   let appliedPromo = null;
   let currentOrderId = null;
 
+  // ─── History / Back-Button Stack ────────────────────────────
+  // Each entry is a layer name: 'itemModal' | 'cartDrawer' | 'checkout' | 'tracking'
+  const historyStack = [];
+
+  function historyPush(layer) {
+    historyStack.push(layer);
+    history.pushState({ layer }, '');
+  }
+
+  function historyCloseLayer(layer) {
+    switch (layer) {
+      case 'itemModal':  closeItemModal(true);  break;
+      case 'cartDrawer': closeCart(true);        break;
+      case 'checkout':   showScreen('#menuScreen', true); break;
+      case 'tracking':   /* user stays on tracking, no back */ break;
+    }
+  }
+
+  window.addEventListener('popstate', () => {
+    const layer = historyStack.pop();
+    if (layer) {
+      historyCloseLayer(layer);
+    }
+  });
+
   // ─── DOM References ─────────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -32,11 +57,17 @@
   const floatingCart = $('#floatingCart');
 
   // ─── Screen Navigation ─────────────────────────────────────
-  function showScreen(screenId) {
+  function showScreen(screenId, fromPopstate) {
     $$('.screen').forEach(s => s.classList.remove('active'));
     $(screenId).classList.add('active');
     window.scrollTo(0, 0);
     floatingCart.style.display = (screenId === '#menuScreen' && cart.length > 0) ? 'flex' : 'none';
+
+    // Push history for sub-screens (not when returning to menu or triggered by back button)
+    if (!fromPopstate && screenId !== '#menuScreen') {
+      const layer = screenId === '#checkoutScreen' ? 'checkout' : 'tracking';
+      historyPush(layer);
+    }
   }
 
   // ─── Render Categories ──────────────────────────────────────
@@ -90,19 +121,38 @@
     });
   }
 
+  // Show menu INSTANTLY from cache, then refresh from API in background
   async function loadAndRenderMenu() {
-    const menu = await getMenu();
-    if (menu && menu.length) {
-      menuData = menu;
+    // Step 1: Render immediately from _menuCache (populated from localStorage)
+    if (_menuCache && _menuCache.length && menuData.length === 0) {
+      menuData = _menuCache;
       renderMenuFromCache();
     }
-    // Check restaurant status
-    try {
-      const status = await apiGet('getStatus');
+
+    // Step 2: Fetch menu + status in parallel (don't block each other)
+    const [menuResult, statusResult] = await Promise.allSettled([
+      getMenu(),
+      apiGet('getStatus'),
+    ]);
+
+    // Apply fresh menu if it changed
+    if (menuResult.status === 'fulfilled' && menuResult.value && menuResult.value.length) {
+      const freshMenu = menuResult.value;
+      // Only re-render if data actually changed (avoid flicker)
+      if (JSON.stringify(freshMenu) !== JSON.stringify(menuData)) {
+        menuData = freshMenu;
+        renderMenuFromCache();
+      }
+    }
+
+    // Apply restaurant status
+    if (statusResult.status === 'fulfilled') {
+      const status = statusResult.value;
       if (status && status.success && !status.isOpen) {
         document.getElementById('closedOverlay').style.display = 'flex';
       }
-    } catch(e) {}
+    }
+
     // Hide loading screen
     const loader = document.getElementById('loadingScreen');
     if (loader) loader.classList.add('hidden');
@@ -219,12 +269,18 @@
     updateModalTotal();
     itemModal.classList.add('active');
     document.body.style.overflow = 'hidden';
+    historyPush('itemModal');
   }
 
-  function closeItemModal() {
+  function closeItemModal(fromPopstate) {
     itemModal.classList.remove('active');
     document.body.style.overflow = '';
     currentItem = null;
+    // If closed by UI (X button / overlay tap), pop the history entry we pushed
+    if (!fromPopstate && historyStack[historyStack.length - 1] === 'itemModal') {
+      historyStack.pop();
+      history.back();
+    }
   }
 
   function updateModalTotal() {
@@ -311,12 +367,17 @@
     cartOverlay.classList.add('active');
     cartDrawer.classList.add('active');
     document.body.style.overflow = 'hidden';
+    historyPush('cartDrawer');
   }
 
-  function closeCart() {
+  function closeCart(fromPopstate) {
     cartOverlay.classList.remove('active');
     cartDrawer.classList.remove('active');
     document.body.style.overflow = '';
+    if (!fromPopstate && historyStack[historyStack.length - 1] === 'cartDrawer') {
+      historyStack.pop();
+      history.back();
+    }
   }
 
   function renderCartDrawer() {
@@ -522,16 +583,30 @@
   }
 
   // ─── Stock Sync Poll ───────────────────────────────────────
+  // Poll every 30s for stock changes — the heavy lifting is done
+  // by the smart diff check inside loadAndRenderMenu()
   function startStockPoll() {
-    setInterval(() => { loadAndRenderMenu(); }, 10000);
+    setInterval(() => { loadAndRenderMenu(); }, 30000);
   }
 
   // ─── Event Listeners ───────────────────────────────────────
   async function init() {
     renderCategories();
-    await loadAndRenderMenu();
+
+    // Render cached menu SYNCHRONOUSLY first (instant UI)
+    if (_menuCache && _menuCache.length) {
+      menuData = _menuCache;
+      renderMenuFromCache();
+      // Hide loading screen immediately since we have cached data
+      const loader = document.getElementById('loadingScreen');
+      if (loader) loader.classList.add('hidden');
+    }
+
     setupCategoryObserver();
     startStockPoll();
+
+    // Fetch fresh data in background (non-blocking)
+    loadAndRenderMenu();
 
     itemModal.addEventListener('click', (e) => { if (e.target === itemModal) closeItemModal(); });
     $('#qtyMinus').addEventListener('click', () => {
@@ -552,7 +627,14 @@
     $('#promoApply').addEventListener('click', applyPromo);
     $('#goCheckout').addEventListener('click', goToCheckout);
 
-    $('#backToMenu').addEventListener('click', () => showScreen('#menuScreen'));
+    $('#backToMenu').addEventListener('click', () => {
+      // Pop the checkout history entry by going back
+      if (historyStack[historyStack.length - 1] === 'checkout') {
+        historyStack.pop();
+        history.back();
+      }
+      showScreen('#menuScreen', true);
+    });
     $('#checkoutForm').addEventListener('submit', submitOrder);
 
     $('#customerPhone').addEventListener('input', () => {

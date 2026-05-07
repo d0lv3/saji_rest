@@ -1,6 +1,7 @@
 /* ============================================================
    data.js — Shared Data Layer for مطعم صاجي
    Uses Google Apps Script as backend for cross-device sync
+   Performance-optimized with localStorage caching
    ============================================================ */
 
 // ══════════════════════════════════════════════════════════════
@@ -50,6 +51,44 @@ const FALLBACK_MENU = [
 let _menuCache = [...FALLBACK_MENU];
 let _ordersCache = [];
 
+// ─── localStorage Persistence ────────────────────────────────
+// Menu rarely changes — cache it in localStorage so next visit is instant
+const MENU_STORAGE_KEY = 'saji_menu_cache';
+const MENU_CACHE_TTL = 60 * 1000; // 1 minute — after this, fetch fresh in background
+
+function loadMenuFromStorage() {
+  try {
+    const raw = localStorage.getItem(MENU_STORAGE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (cached && cached.data && cached.data.length > 0) {
+      return cached;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function saveMenuToStorage(data) {
+  try {
+    localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify({
+      data: data,
+      ts: Date.now(),
+    }));
+  } catch (e) {}
+}
+
+// Initialize _menuCache from localStorage immediately (synchronous, no wait)
+(function () {
+  const stored = loadMenuFromStorage();
+  if (stored && stored.data) {
+    _menuCache = stored.data;
+  }
+})();
+
+// ─── In-flight Request Deduplication ─────────────────────────
+// Prevents multiple concurrent identical API calls
+const _inflightRequests = {};
+
 // ─── API Helpers ─────────────────────────────────────────────
 
 async function apiGet(action, params) {
@@ -59,15 +98,27 @@ async function apiGet(action, params) {
       url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
     });
   }
-  try {
-    const res = await fetch(url, { redirect: 'follow' });
-    const text = await res.text();
-    console.log('API GET ' + action + ':', text.substring(0, 200));
-    return JSON.parse(text);
-  } catch (err) {
-    console.error('API GET error:', action, err);
-    return { error: err.message };
+
+  // Deduplicate: if this exact request is already in-flight, reuse it
+  if (_inflightRequests[url]) {
+    return _inflightRequests[url];
   }
+
+  const promise = (async () => {
+    try {
+      const res = await fetch(url, { redirect: 'follow' });
+      const text = await res.text();
+      return JSON.parse(text);
+    } catch (err) {
+      console.error('API GET error:', action, err);
+      return { error: err.message };
+    } finally {
+      delete _inflightRequests[url];
+    }
+  })();
+
+  _inflightRequests[url] = promise;
+  return promise;
 }
 
 async function apiPost(body) {
@@ -80,11 +131,9 @@ async function apiPost(body) {
     });
     try {
       const text = await res.text();
-      console.log('API POST response:', text.substring(0, 200));
       return JSON.parse(text);
     } catch (parseErr) {
       // GAS redirect may give unreadable response — assume success
-      console.log('API POST sent (no readable response):', body.action);
       return { success: true };
     }
   } catch (err) {
@@ -97,17 +146,37 @@ async function apiPost(body) {
 // ─── Menu Functions ──────────────────────────────────────────
 
 async function getMenu() {
+  // Return cached data immediately, then refresh in background if stale
+  const stored = loadMenuFromStorage();
+  const isFresh = stored && (Date.now() - stored.ts) < MENU_CACHE_TTL;
+
+  if (isFresh) {
+    _menuCache = stored.data;
+    return stored.data;
+  }
+
+  // Not fresh — fetch from API
   try {
     const result = await apiGet('getMenu');
     if (result && result.success && result.data && result.data.length > 0) {
       _menuCache = result.data;
+      saveMenuToStorage(result.data);
       return result.data;
     }
   } catch (err) {
     console.warn('getMenu failed:', err);
   }
-  console.warn('Using fallback/cached menu');
   return _menuCache;
+}
+
+// Fire-and-forget background menu refresh (doesn't block UI)
+function refreshMenuInBackground() {
+  apiGet('getMenu').then(result => {
+    if (result && result.success && result.data && result.data.length > 0) {
+      _menuCache = result.data;
+      saveMenuToStorage(result.data);
+    }
+  }).catch(() => {});
 }
 
 async function toggleStock(itemId, inStock) {

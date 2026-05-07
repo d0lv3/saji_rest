@@ -303,10 +303,16 @@ if ('serviceWorker' in navigator) {
       deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
       banner.classList.remove('visible');
     } else if (isIOS) {
-      // Show iOS instructions
+      // Show iOS 17/18 instructions with Apple share icon SVG
+      var shareIconSVG = '<svg style="display:inline-block;vertical-align:middle;margin:0 2px;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
       banner.querySelector('.install-text').innerHTML =
-        '<strong>لتثبيت التطبيق:</strong>' +
-        '<p>اضغط على <span style="font-size:18px">⬆️</span> (مشاركة) ثم <strong>"إضافة إلى الشاشة الرئيسية"</strong></p>';
+        '<strong style="font-size:14px;margin-bottom:8px;display:block;">لتثبيت التطبيق:</strong>' +
+        '<div style="font-size:13px;line-height:2;color:#555;">' +
+          '<div>١. اضغط على ' + shareIconSVG + ' في شريط Safari السفلي</div>' +
+          '<div>٢. مرر للأسفل واختر <strong>"إضافة إلى الشاشة الرئيسية"</strong></div>' +
+          '<div>٣. اضغط <strong>"إضافة"</strong> في الأعلى</div>' +
+        '</div>' +
+        '<p style="font-size:11px;color:#999;margin-top:6px;">لا تجد الخيار؟ اضغط "تحرير الإجراءات" وأضفه من القائمة</p>';
       installBtn.style.display = 'none';
     }
   });

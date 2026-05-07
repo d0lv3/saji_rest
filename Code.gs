@@ -127,10 +127,19 @@ function doPost(e) {
 
 // ─── Menu Functions ───────────────────────────────────────────
 function getMenuData() {
-  const sheet = getSpreadsheet().getSheetByName(SHEET_MENU);
-  const rows = sheet.getDataRange().getValues();
-  const menu = [];
-  for (let i = 1; i < rows.length; i++) {
+  // Use GAS CacheService to avoid re-reading the sheet on every request
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('menu_data');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch(e) {}
+  }
+
+  var sheet = getSpreadsheet().getSheetByName(SHEET_MENU);
+  var rows = sheet.getDataRange().getValues();
+  var menu = [];
+  for (var i = 1; i < rows.length; i++) {
     menu.push({
       id: rows[i][0],
       name: rows[i][1],
@@ -142,15 +151,22 @@ function getMenuData() {
       addons: JSON.parse(rows[i][7] || '[]'),
     });
   }
-  return { success: true, data: menu };
+  var result = { success: true, data: menu };
+  // Cache for 60 seconds — menu changes rarely
+  try {
+    cache.put('menu_data', JSON.stringify(result), 60);
+  } catch(e) {}
+  return result;
 }
 
 function toggleItemStock(itemId, inStock) {
-  const sheet = getSpreadsheet().getSheetByName(SHEET_MENU);
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
+  var sheet = getSpreadsheet().getSheetByName(SHEET_MENU);
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === itemId) {
       sheet.getRange(i + 1, 7).setValue(inStock);
+      // Invalidate cache so next getMenu picks up the change
+      try { CacheService.getScriptCache().remove('menu_data'); } catch(e) {}
       return { success: true };
     }
   }
@@ -159,11 +175,14 @@ function toggleItemStock(itemId, inStock) {
 
 // ─── Orders Functions ─────────────────────────────────────────
 function getOrdersData() {
-  const sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
-  const rows = sheet.getDataRange().getValues();
-  const orders = [];
-  for (let i = 1; i < rows.length; i++) {
+  var sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
+  var rows = sheet.getDataRange().getValues();
+  var orders = [];
+  for (var i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
+    var status = rows[i][10];
+    // Only return active orders — skip 'done' to reduce payload
+    if (status === 'done') continue;
     orders.push({
       id: rows[i][0],
       items: JSON.parse(rows[i][1] || '[]'),
@@ -175,7 +194,7 @@ function getOrdersData() {
       phone: String(rows[i][7]),
       address: rows[i][8],
       name: rows[i][9],
-      status: rows[i][10],
+      status: status,
       timestamp: Number(rows[i][11]),
     });
   }
