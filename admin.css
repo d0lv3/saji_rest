@@ -689,18 +689,71 @@ body {
   .order-actions { flex-direction: column; }
   .order-action-btn { font-size: 13px; padding: 11px; }
 
-  /* Menu table mobile */
-  .menu-table-header,
+  /* Menu table mobile — card layout */
+  .menu-table-header { display: none; }
+
   .menu-table-row {
-    grid-template-columns: 1fr auto 60px;
-    padding: 12px 14px;
+    grid-template-columns: 1fr;
+    padding: 14px 16px;
+    gap: 8px;
     font-size: 13px;
   }
-  .menu-table-header > :nth-child(2),
-  .menu-table-row > :nth-child(2) { display: none; }
-  .toggle-switch { width: 42px; height: 24px; }
-  .toggle-slider::before { width: 18px; height: 18px; }
-  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(-18px); }
+
+  .menu-table-row > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .menu-table-row .item-name {
+    font-size: 14px;
+  }
+
+  .menu-table-row .item-cat {
+    font-size: 11px;
+    background: var(--bg-elevated);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+  }
+
+  .menu-table-row .item-price-cell {
+    font-size: 14px;
+  }
+
+  .menu-table-row > div:first-child::after {
+    content: none;
+  }
+
+  /* Arrange price and toggle on same line */
+  .menu-table-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .menu-table-row > div:first-child {
+    width: 100%;
+  }
+
+  .menu-table-row .item-cat {
+    display: none;
+  }
+
+  .menu-table-row .item-price-cell {
+    flex: 1;
+  }
+
+  .menu-table-row .toggle-switch {
+    width: 42px;
+    height: 24px;
+  }
+  .menu-table-row .toggle-slider::before {
+    width: 18px;
+    height: 18px;
+  }
+  .menu-table-row .toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(-18px);
+  }
 
   /* Login mobile */
   .login-card {
