@@ -457,9 +457,16 @@
     updateCartUI();
   }
 
-  // ─── Checkout ───────────────────────────────────────────────
   function goToCheckout() {
-    closeCart();
+    // Close cart visually WITHOUT triggering history.back()
+    // This prevents the popstate race condition on mobile
+    cartOverlay.classList.remove('active');
+    cartDrawer.classList.remove('active');
+    document.body.style.overflow = '';
+    // Clean up history stack entry for cart drawer (don't call history.back)
+    const cartIdx = historyStack.indexOf('cartDrawer');
+    if (cartIdx !== -1) historyStack.splice(cartIdx, 1);
+
     renderCheckoutSummary();
     showScreen('#checkoutScreen');
   }
