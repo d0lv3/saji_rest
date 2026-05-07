@@ -366,6 +366,7 @@
     renderCartDrawer();
     cartOverlay.classList.add('active');
     cartDrawer.classList.add('active');
+    floatingCart.style.display = 'none'; // Hide to prevent click overlap
     document.body.style.overflow = 'hidden';
     historyPush('cartDrawer');
   }
@@ -373,6 +374,7 @@
   function closeCart(fromPopstate) {
     cartOverlay.classList.remove('active');
     cartDrawer.classList.remove('active');
+    if (cart.length > 0) floatingCart.style.display = 'flex'; // Restore
     document.body.style.overflow = '';
     if (!fromPopstate && historyStack[historyStack.length - 1] === 'cartDrawer') {
       historyStack.pop();
@@ -412,7 +414,7 @@
     const subtotal = getCartSubtotal();
     const discount = getDiscount(subtotal);
     const total = subtotal + DELIVERY_FEE - discount;
-    const meetsMin = subtotal > MIN_ORDER;
+    const meetsMin = subtotal >= MIN_ORDER;
 
     let summaryHtml = `
       <div class="cart-summary-row"><span>المجموع الفرعي</span><span>${formatPrice(subtotal)}</span></div>
