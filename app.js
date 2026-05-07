@@ -13,7 +13,7 @@
   let modalQty = 1;
   let modalAddons = [];
   let appliedPromo = null;
-  let currentOrderId = null;
+  let currentOrderId = localStorage.getItem('saji_active_order') || null;
 
   // ─── History / Back-Button Stack ────────────────────────────
   // Each entry is a layer name: 'itemModal' | 'cartDrawer' | 'checkout' | 'tracking'
@@ -544,6 +544,7 @@
     console.log('Order submit result:', result);
 
     currentOrderId = order.id;
+    localStorage.setItem('saji_active_order', order.id);
     cart = [];
     appliedPromo = null;
     updateCartUI();
@@ -555,6 +556,7 @@
 
     showScreen('#trackingScreen');
     $('#trackingOrderId').textContent = `رقم الطلب: ${order.id}`;
+    hideOrderCompleted();
     updateTrackingTimeline('pending');
     startTrackingPoll();
   }
@@ -578,8 +580,42 @@
       if (!currentOrderId) return;
       const orders = await getOrders();
       const order = orders.find(o => o.id === currentOrderId);
-      if (order) updateTrackingTimeline(order.status);
+      if (order) {
+        updateTrackingTimeline(order.status);
+        if (order.status === 'done') {
+          // Order completed — show done UI
+          clearInterval(trackingInterval);
+          trackingInterval = null;
+          currentOrderId = null;
+          localStorage.removeItem('saji_active_order');
+          updateTrackingTimeline('done');
+          showOrderCompleted();
+        }
+      } else {
+        // Order not found in active orders (already done/removed)
+        clearInterval(trackingInterval);
+        trackingInterval = null;
+        currentOrderId = null;
+        localStorage.removeItem('saji_active_order');
+        showOrderCompleted();
+      }
     }, 4000);
+  }
+
+  function showOrderCompleted() {
+    // Mark all steps as completed
+    $$('.timeline-step').forEach(step => {
+      step.classList.remove('active');
+      step.classList.add('completed');
+    });
+    // Show completion message and new order button
+    $('#orderDoneMsg').style.display = 'block';
+    $('#newOrderBtn').style.display = 'block';
+  }
+
+  function hideOrderCompleted() {
+    $('#orderDoneMsg').style.display = 'none';
+    $('#newOrderBtn').style.display = 'none';
   }
 
   // ─── Stock Sync Poll ───────────────────────────────────────
@@ -607,6 +643,25 @@
 
     // Fetch fresh data in background (non-blocking)
     loadAndRenderMenu();
+
+    // ─── Restore active order tracking ──────────────────────
+    if (currentOrderId) {
+      showScreen('#trackingScreen');
+      $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
+      // Fetch current status immediately
+      getOrders().then(orders => {
+        const order = orders.find(o => o.id === currentOrderId);
+        if (order) {
+          updateTrackingTimeline(order.status);
+        } else {
+          // Order is done/not found — clear and go to menu
+          currentOrderId = null;
+          localStorage.removeItem('saji_active_order');
+          showScreen('#menuScreen');
+        }
+      }).catch(() => {});
+      startTrackingPoll();
+    }
 
     itemModal.addEventListener('click', (e) => { if (e.target === itemModal) closeItemModal(); });
     $('#qtyMinus').addEventListener('click', () => {
@@ -652,7 +707,9 @@
 
     $('#newOrderBtn').addEventListener('click', () => {
       currentOrderId = null;
+      localStorage.removeItem('saji_active_order');
       if (trackingInterval) clearInterval(trackingInterval);
+      hideOrderCompleted();
       showScreen('#menuScreen');
     });
   }
