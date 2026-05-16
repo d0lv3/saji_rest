@@ -13,6 +13,17 @@
   let audioCtx = null;
   let menuCache = [];
 
+  // ─── Navbar View Switching ──────────────────────────────────
+  $$('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.view;
+      $('#dashboardView').classList.toggle('active', view === 'dashboard');
+      $('#previewView').classList.toggle('active', view === 'preview');
+    });
+  });
+
   // ─── Tab Switching ──────────────────────────────────────────
   $$('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {

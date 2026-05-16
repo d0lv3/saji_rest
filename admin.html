@@ -43,6 +43,21 @@
   <div class="header-badge" id="orderCountBadge">0 طلبات نشطة</div>
 </header>
 
+<!-- Admin Navbar -->
+<nav class="admin-navbar" id="adminNavbar">
+  <button class="nav-btn active" data-view="dashboard" id="navDashboard">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+    لوحة التحكم
+  </button>
+  <button class="nav-btn" data-view="preview" id="navPreview">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    عرض القائمة
+  </button>
+</nav>
+
+<!-- Dashboard View -->
+<div class="admin-view active" id="dashboardView">
+
 <!-- Tabs -->
 <nav class="admin-tabs">
   <button class="admin-tab active" data-tab="orders" id="tabOrders">📋 الطلبات</button>
@@ -115,6 +130,13 @@
     </div>
   </div>
 
+</div>
+
+</div> <!-- end dashboardView -->
+
+<!-- Menu Preview View -->
+<div class="admin-view" id="previewView">
+  <iframe src="index.html" class="menu-preview-frame" id="menuPreviewFrame"></iframe>
 </div>
 
 <script src="data.js"></script>

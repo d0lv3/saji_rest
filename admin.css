@@ -296,6 +296,53 @@ body {
   transform: translateX(18px);
 }
 
+/* ─── Admin Navbar ─────────────────────────────── */
+.admin-navbar {
+  display: flex;
+  gap: 0;
+  background: #1a1a2e;
+  padding: 0;
+}
+.nav-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+.nav-btn:hover {
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.05);
+}
+.nav-btn.active {
+  color: #fff;
+  border-bottom-color: var(--primary);
+  background: rgba(255,255,255,0.08);
+}
+.nav-btn svg { stroke: currentColor; }
+
+/* Admin Views */
+.admin-view { display: none; }
+.admin-view.active { display: block; }
+
+/* Menu Preview */
+.menu-preview-frame {
+  width: 100%;
+  height: calc(100vh - 140px);
+  border: none;
+  display: block;
+}
+
 /* ─── Tabs ─────────────────────────────────────── */
 .admin-tabs {
   display: flex;
