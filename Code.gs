@@ -43,13 +43,13 @@ function initializeSheets() {
     
     const defaultMenu = [
       ['chicken_saj','صاجية دجاج','','الصاج',2500,'asstes/dishes_assets/chiecken_saj.png',true,'[]'],
-      ['meat_saj','صاجية لحم','','الصاج',3500,'asstes/dishes_assets/meat_saj.png',true,'[]'],
+      ['meat_saj','صاجية لحم','','الصاج',3000,'asstes/dishes_assets/meat_saj.png',true,'[]'],
       ['chicken_saj_plate','وجبة عربي صاج دجاج','','الصاج',3000,'asstes/dishes_assets/chicken_saj_plate.png',true,'[]'],
       ['meat_saj_plate','وجبة عربي صاج لحم','','الصاج',4000,'asstes/dishes_assets/meat_saj_plate.png',true,'[]'],
       ['saj_burger','صاج بركر','قطعة بركر لذيذة داخل خبز الصاج','الصاج',2500,'asstes/dishes_assets/saj_burger.png',true,'[]'],
       ['chicken_kass_wrap','لفة حجري كص دجاج','','الكص',2000,'asstes/dishes_assets/hajiri_chicken_kass.png',true,'[]'],
       ['chicken_kass_plate','طبق كص دجاج','','الكص',5000,'asstes/dishes_assets/chicken_kass_plate.png',true,'[]'],
-      ['meat_kass_plate','طبق كص لحم','','الكص',3000,'asstes/dishes_assets/meat_kass_plate.png',true,'[]'],
+      ['meat_kass_plate','طبق كص لحم','','الكص',6000,'asstes/dishes_assets/meat_kass_plate.png',true,'[]'],
       ['meat_burger','بركر لحم عراقي كلاسيك','','البركر',2500,'asstes/dishes_assets/meat_burger.png',true,'[]'],
       ['meat_burger_cheese','بركر لحم بالجبن','','البركر',3000,'asstes/dishes_assets/meat_burger_w_cheese.png',true,'[]'],
       ['kass_chicken_rizo','ريزو كص دجاج','','الريزو',3000,'asstes/dishes_assets/kass_chicken_rizo.png',true,'[]'],
