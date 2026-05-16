@@ -797,6 +797,12 @@
       }
       showScreen('#menuScreen', true);
     });
+
+    // Tracking → back to menu (keep order tracking alive)
+    $('#trackingBackToMenu').addEventListener('click', () => {
+      showScreen('#menuScreen');
+    });
+
     $('#checkoutForm').addEventListener('submit', submitOrder);
 
     $('#customerPhone').addEventListener('input', () => {
