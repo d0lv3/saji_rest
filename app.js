@@ -465,13 +465,17 @@
 
   function goToCheckout() {
     // Close cart visually WITHOUT triggering history.back()
-    // This prevents the popstate race condition on mobile
     cartOverlay.classList.remove('active');
     cartDrawer.classList.remove('active');
     document.body.style.overflow = '';
-    // Clean up history stack entry for cart drawer (don't call history.back)
     const cartIdx = historyStack.indexOf('cartDrawer');
     if (cartIdx !== -1) historyStack.splice(cartIdx, 1);
+
+    // Pre-fill saved customer info
+    const saved = JSON.parse(localStorage.getItem('saji_customer') || '{}');
+    if (saved.phone) $('#customerPhone').value = saved.phone;
+    if (saved.address) $('#customerAddress').value = saved.address;
+    if (saved.name) $('#customerName').value = saved.name;
 
     renderCheckoutSummary();
     showScreen('#checkoutScreen');
@@ -562,6 +566,9 @@
     hasActiveOrder = true;
     lastTrackedStatus = 'pending';
     localStorage.setItem('saji_active_order', order.id);
+
+    // Save customer info for next order
+    localStorage.setItem('saji_customer', JSON.stringify({ phone, address, name }));
     cart = [];
     appliedPromo = null;
     updateCartUI();
