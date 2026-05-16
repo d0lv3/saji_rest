@@ -217,6 +217,18 @@
     }).join('');
   }
 
+  // Reset completed orders
+  $('#resetCompletedBtn').addEventListener('click', async () => {
+    if (!confirm('هل أنت متأكد من مسح جميع الطلبات المكتملة؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    const btn = $('#resetCompletedBtn');
+    btn.disabled = true;
+    btn.textContent = '...جاري المسح';
+    await apiPost({ action: 'clearCompleted' });
+    btn.disabled = false;
+    btn.textContent = '🗑️ مسح الكل';
+    await renderCompletedOrders();
+  });
+
   // ─── Render Menu Management ─────────────────────────────────
   async function renderMenuTable() {
     const menu = await getMenu();

@@ -117,6 +117,7 @@ function doPost(e) {
       case 'updateOrder': result = updateOrderStatus(data.orderId, data.status); break;
       case 'toggleStock': result = toggleItemStock(data.itemId, data.inStock); break;
       case 'setStatus':   result = setRestaurantStatus(data.isOpen); break;
+      case 'clearCompleted': result = clearCompletedOrders(); break;
       default: result = { error: 'Unknown action' };
     }
   } catch(err) {
@@ -250,6 +251,20 @@ function updateOrderStatus(orderId, newStatus) {
     }
   }
   return { error: 'Order not found' };
+}
+
+function clearCompletedOrders() {
+  var sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
+  var rows = sheet.getDataRange().getValues();
+  var deleted = 0;
+  // Delete from bottom to top to avoid index shifting
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (rows[i][10] === 'done') {
+      sheet.deleteRow(i + 1);
+      deleted++;
+    }
+  }
+  return { success: true, deleted: deleted };
 }
 
 // ─── Promo Code Functions ─────────────────────────────────────

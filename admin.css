@@ -857,11 +857,33 @@ body {
 }
 
 /* Completed Title */
+.completed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
 .completed-title {
   font-size: 16px;
   font-weight: 700;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   color: var(--text-dark);
+}
+.reset-completed-btn {
+  padding: 8px 16px;
+  border: 1.5px solid var(--danger);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.reset-completed-btn:hover {
+  background: var(--danger);
+  color: #fff;
 }
 
 /* Completed Order Rows */
