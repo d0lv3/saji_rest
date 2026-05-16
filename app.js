@@ -31,7 +31,7 @@
       case 'itemModal':  closeItemModal(true);  break;
       case 'cartDrawer': closeCart(true);        break;
       case 'checkout':   showScreen('#menuScreen', true); break;
-      case 'tracking':   /* user stays on tracking, no back */ break;
+      case 'tracking':   showScreen('#menuScreen', true); break;
     }
   }
 
@@ -574,8 +574,11 @@
     // Request notification permission
     requestUserNotificationPermission();
 
-    // Go to menu with floating order card instead of tracking screen
-    showScreen('#menuScreen');
+    // Show tracking screen first
+    showScreen('#trackingScreen');
+    $('#trackingOrderId').textContent = `رقم الطلب: ${order.id}`;
+    hideOrderCompleted();
+    updateTrackingTimeline('pending');
     startTrackingPoll();
   }
 
