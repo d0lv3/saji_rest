@@ -49,7 +49,7 @@ function initializeSheets() {
       ['saj_burger','صاج بركر','قطعة بركر لذيذة داخل خبز الصاج','الصاج',2500,'asstes/dishes_assets/saj_burger.png',true,'[]'],
       ['chicken_kass_wrap','لفة حجري كص دجاج','','الكص',2000,'asstes/dishes_assets/hajiri_chicken_kass.png',true,'[]'],
       ['chicken_kass_plate','طبق كص دجاج','','الكص',5000,'asstes/dishes_assets/chicken_kass_plate.png',true,'[]'],
-      ['meat_kass_plate','طبق كص لحم','','الكص',6000,'asstes/dishes_assets/meat_kass_plate.png',true,'[]'],
+      ['meat_kass_plate','طبق كص لحم','','الكص',3000,'asstes/dishes_assets/meat_kass_plate.png',true,'[]'],
       ['meat_burger','بركر لحم عراقي كلاسيك','','البركر',2500,'asstes/dishes_assets/meat_burger.png',true,'[]'],
       ['meat_burger_cheese','بركر لحم بالجبن','','البركر',3000,'asstes/dishes_assets/meat_burger_w_cheese.png',true,'[]'],
       ['kass_chicken_rizo','ريزو كص دجاج','','الريزو',3000,'asstes/dishes_assets/kass_chicken_rizo.png',true,'[]'],
