@@ -221,7 +221,7 @@ body {
 }
 
 .admin-header .logo {
-  height: 36px;
+  height: 48px;
   filter: drop-shadow(0 2px 6px rgba(255,107,0,0.25));
 }
 
@@ -726,7 +726,7 @@ body {
     gap: 10px;
     flex-wrap: wrap;
   }
-  .admin-header .logo { height: 30px; }
+  .admin-header .logo { height: 38px; }
   .admin-header h1 { font-size: 15px; }
   .admin-header .header-badge {
     font-size: 11px;
@@ -854,7 +854,7 @@ body {
 
 @media (max-width: 380px) {
   .admin-header h1 { font-size: 14px; }
-  .admin-header .logo { height: 26px; }
+  .admin-header .logo { height: 32px; }
   .admin-content { padding: 12px 8px; }
   .order-card { padding: 12px; }
   .login-card { padding: 28px 20px; }

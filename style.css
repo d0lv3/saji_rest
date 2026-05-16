@@ -134,7 +134,7 @@ body {
   top: 0;
   z-index: 100;
 }
-.app-header .logo { height: 40px; }
+.app-header .logo { height: 56px; }
 .app-header .brand { flex: 1; }
 .app-header .brand h1 { font-size: 20px; font-weight: 700; color: var(--text-dark); }
 .app-header .brand span { font-size: 12px; color: var(--text-muted); }
