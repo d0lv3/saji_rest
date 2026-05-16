@@ -46,6 +46,7 @@
 <!-- Tabs -->
 <nav class="admin-tabs">
   <button class="admin-tab active" data-tab="orders" id="tabOrders">📋 الطلبات</button>
+  <button class="admin-tab" data-tab="completed" id="tabCompleted">📊 الطلبات المكتملة</button>
   <button class="admin-tab" data-tab="menu" id="tabMenu">🍽️ إدارة القائمة</button>
 </nav>
 
@@ -68,6 +69,34 @@
         <div class="orders-list" id="deliveryOrders"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ═══ COMPLETED ORDERS TAB ═══ -->
+  <div class="completed-section-admin" id="completedSection">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-value" id="statTotalOrders">0</div>
+        <div class="stat-label">إجمالي الطلبات</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-value" id="statTotalRevenue">0</div>
+        <div class="stat-label">إجمالي الإيرادات</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⭐</div>
+        <div class="stat-value" id="statTopItem">—</div>
+        <div class="stat-label">الصنف الأكثر مبيعاً</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value" id="statAvgOrder">0</div>
+        <div class="stat-label">متوسط قيمة الطلب</div>
+      </div>
+    </div>
+    <h3 class="completed-title">سجل الطلبات المكتملة</h3>
+    <div id="completedOrdersList" class="completed-orders-list"></div>
   </div>
 
   <!-- ═══ MENU TAB ═══ -->

@@ -20,9 +20,30 @@
       tab.classList.add('active');
       const target = tab.dataset.tab;
       $('#ordersSection').classList.toggle('active', target === 'orders');
+      $('#completedSection').classList.toggle('active', target === 'completed');
       $('#menuSection').classList.toggle('active', target === 'menu');
+      if (target === 'completed') renderCompletedOrders();
     });
   });
+
+  // ─── Browser Notifications ─────────────────────────────────
+  function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }
+
+  function sendBrowserNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body: body,
+          icon: 'asstes/saji_logo.png',
+          tag: 'saji-admin-' + Date.now(),
+        });
+      } catch (e) { console.warn('Notification failed:', e); }
+    }
+  }
 
   // ─── Audio Alert (Web Audio API) ────────────────────────────
   function playNotificationSound() {
@@ -73,9 +94,14 @@
     $('#cookingOrders').innerHTML = cooking.length ? cooking.map(o => renderOrderCard(o, 'cooking')).join('') : emptyMsg;
     $('#deliveryOrders').innerHTML = delivery.length ? delivery.map(o => renderOrderCard(o, 'delivery')).join('') : emptyMsg;
 
-    // Check for new orders & play sound
+    // Check for new orders & play sound + send notification
     if (orders.length > lastOrderCount && lastOrderCount > 0) {
+      const newCount = orders.length - lastOrderCount;
       playNotificationSound();
+      sendBrowserNotification(
+        '🔔 طلب جديد!',
+        `وصل ${newCount} طلب جديد — اضغط للمراجعة`
+      );
     }
     lastOrderCount = orders.length;
 
@@ -134,6 +160,61 @@
         ${actionsHtml}
       </div>
     `;
+  }
+
+  // ─── Completed Orders + Stats Dashboard ─────────────────────
+  async function renderCompletedOrders() {
+    const orders = await getCompletedOrders();
+
+    // Calculate stats
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const avgOrder = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+    // Most sold item
+    const itemFreq = {};
+    orders.forEach(o => {
+      o.items.forEach(item => {
+        itemFreq[item.name] = (itemFreq[item.name] || 0) + item.qty;
+      });
+    });
+    let topItem = '—';
+    let topCount = 0;
+    Object.entries(itemFreq).forEach(([name, count]) => {
+      if (count > topCount) { topItem = name; topCount = count; }
+    });
+
+    // Update stat cards
+    $('#statTotalOrders').textContent = totalOrders;
+    $('#statTotalRevenue').textContent = formatPrice(totalRevenue);
+    $('#statTopItem').textContent = topItem;
+    $('#statAvgOrder').textContent = formatPrice(avgOrder);
+
+    // Render completed orders list
+    const list = $('#completedOrdersList');
+    if (orders.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px 0;">لا توجد طلبات مكتملة بعد</p>';
+      return;
+    }
+
+    list.innerHTML = orders.map(order => {
+      const time = getTimeString(order.timestamp);
+      const date = getDateString(order.timestamp);
+      const itemsSummary = order.items.map(i => `${i.name} ×${i.qty}`).join('، ');
+      return `
+        <div class="completed-order-row">
+          <div class="cor-header">
+            <span class="cor-id">${order.id}</span>
+            <span class="cor-time">${time} · ${date}</span>
+          </div>
+          <div class="cor-items">${itemsSummary}</div>
+          <div class="cor-footer">
+            <span>${order.name || order.phone}</span>
+            <span class="cor-total">${formatPrice(order.total)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   // ─── Render Menu Management ─────────────────────────────────
@@ -215,6 +296,8 @@
 
   // ─── Init ───────────────────────────────────────────────────
   async function startDashboard() {
+    requestNotificationPermission();
+
     // Load orders + menu + status all in parallel
     const [ordersResult] = await Promise.allSettled([
       getOrders(),

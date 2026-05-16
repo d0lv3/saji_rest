@@ -48,7 +48,6 @@ function initializeSheets() {
       ['meat_saj_plate','وجبة عربي صاج لحم','وجبة عربي صاج لحم مع مخللات','الصاج',4000,'asstes/dishes_assets/meat_saj_plate.png',true,'[]'],
       ['saj_burger','صاج بركر','صاج بركر مميز','الصاج',2500,'asstes/dishes_assets/saj_burger.png',true,'[]'],
       ['chicken_kass_wrap','لفة حجري كص دجاج','لفة حجري كص دجاج','الكص',2000,'asstes/dishes_assets/hajiri_chicken_kass.png',true,'[]'],
-      ['meat_kass_wrap','لفة حجري كص لحم','لفة حجري كص لحم','الكص',3000,'asstes/dishes_assets/hajiri_meat_kass.png',true,'[]'],
       ['chicken_kass_plate','طبق كص دجاج','طبق كص دجاج مع أرز ومخللات','الكص',5000,'asstes/dishes_assets/chicken_kass_plate.png',true,'[]'],
       ['meat_kass_plate','طبق كص لحم','طبق كص لحم مع أرز ومخللات','الكص',6000,'asstes/dishes_assets/meat_kass_plate.png',true,'[]'],
       ['meat_burger','بركر لحم عراقي كلاسيك','بركر لحم عراقي كلاسيكي','البركر',2500,'asstes/dishes_assets/meat_burger.png',true,'[]'],
@@ -60,8 +59,8 @@ function initializeSheets() {
       ['fries_large','قدح فنكر كبير','قدح فنكر كبير','الفنكر',2000,'asstes/dishes_assets/fries_plate.png',true,'[]'],
       ['fries_large_cheese','قدح فنكر كبير بالجبن','قدح فنكر كبير بالجبن','الفنكر',2500,'asstes/dishes_assets/fries_plate_w_cheese.jpg',true,'[]'],
       ['water','ماء','مياه معدنية','المشاريب',250,'asstes/dishes_assets/wbottle.png',true,'[]'],
-      ['pepsi','بيبسي','مشروب غازي بارد','المشاريب',500,'asstes/dishes_assets/pepsi.png',true,'[]'],
-      ['grape_juice','عصير زبيب','عصير زبيب طبيعي','المشاريب',500,'asstes/dishes_assets/brjuice.png',true,'[]'],
+      ['cola','كولا','مشروب غازي بارد','المشاريب',500,'asstes/dishes_assets/cola.png',true,'[]'],
+      ['grape_juice','عصير زبيب','عصير زبيب طبيعي','المشاريب',1000,'asstes/dishes_assets/brjuice.png',true,'[]'],
     ];
     defaultMenu.forEach(row => menuSheet.appendRow(row));
   }
@@ -93,6 +92,8 @@ function doGet(e) {
     switch(action) {
       case 'getMenu':     result = getMenuData(); break;
       case 'getOrders':   result = getOrdersData(); break;
+      case 'getCompletedOrders': result = getCompletedOrdersData(); break;
+      case 'getOrderStatus': result = getOrderStatusById(e.parameter.orderId); break;
       case 'getPromoCodes': result = getPromoCodesData(); break;
       case 'validatePromo': result = validatePromoCode(e.parameter.code); break;
       case 'adminLogin':  result = validateAdminLogin(e.parameter.pass); break;
@@ -174,6 +175,23 @@ function toggleItemStock(itemId, inStock) {
 }
 
 // ─── Orders Functions ─────────────────────────────────────────
+function parseOrderRow(row) {
+  return {
+    id: row[0],
+    items: JSON.parse(row[1] || '[]'),
+    subtotal: Number(row[2]),
+    deliveryFee: Number(row[3]),
+    discount: Number(row[4]),
+    promoCode: row[5],
+    total: Number(row[6]),
+    phone: String(row[7]),
+    address: row[8],
+    name: row[9],
+    status: row[10],
+    timestamp: Number(row[11]),
+  };
+}
+
 function getOrdersData() {
   var sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
   var rows = sheet.getDataRange().getValues();
@@ -181,25 +199,35 @@ function getOrdersData() {
   for (var i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     var status = rows[i][10];
-    // Only return active orders — skip 'done' to reduce payload
     if (status === 'done') continue;
-    orders.push({
-      id: rows[i][0],
-      items: JSON.parse(rows[i][1] || '[]'),
-      subtotal: Number(rows[i][2]),
-      deliveryFee: Number(rows[i][3]),
-      discount: Number(rows[i][4]),
-      promoCode: rows[i][5],
-      total: Number(rows[i][6]),
-      phone: String(rows[i][7]),
-      address: rows[i][8],
-      name: rows[i][9],
-      status: status,
-      timestamp: Number(rows[i][11]),
-    });
+    orders.push(parseOrderRow(rows[i]));
   }
   orders.reverse();
   return { success: true, data: orders };
+}
+
+function getCompletedOrdersData() {
+  var sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
+  var rows = sheet.getDataRange().getValues();
+  var orders = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    if (rows[i][10] !== 'done') continue;
+    orders.push(parseOrderRow(rows[i]));
+  }
+  orders.reverse();
+  return { success: true, data: orders };
+}
+
+function getOrderStatusById(orderId) {
+  var sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === orderId) {
+      return { success: true, status: rows[i][10] };
+    }
+  }
+  return { success: false, status: 'not_found' };
 }
 
 function saveOrderData(order) {

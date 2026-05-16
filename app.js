@@ -14,6 +14,8 @@
   let modalAddons = [];
   let appliedPromo = null;
   let currentOrderId = localStorage.getItem('saji_active_order') || null;
+  let hasActiveOrder = !!currentOrderId;
+  let lastTrackedStatus = null;
 
   // ─── History / Back-Button Stack ────────────────────────────
   // Each entry is a layer name: 'itemModal' | 'cartDrawer' | 'checkout' | 'tracking'
@@ -61,7 +63,10 @@
     $$('.screen').forEach(s => s.classList.remove('active'));
     $(screenId).classList.add('active');
     window.scrollTo(0, 0);
-    floatingCart.style.display = (screenId === '#menuScreen' && cart.length > 0) ? 'flex' : 'none';
+    // Show floating cart only on menu and no active order
+    floatingCart.style.display = (screenId === '#menuScreen' && cart.length > 0 && !hasActiveOrder) ? 'flex' : 'none';
+    // Show floating order card on menu screen if active order
+    updateFloatingOrderCard();
 
     // Push history for sub-screens (not when returning to menu or triggered by back button)
     if (!fromPopstate && screenId !== '#menuScreen') {
@@ -115,6 +120,7 @@
 
     menuContent.querySelectorAll('.item-card').forEach(card => {
       card.addEventListener('click', () => {
+        if (hasActiveOrder) return; // Block adding items during active order
         const item = menuData.find(i => i.id === card.dataset.id);
         if (item && item.inStock) openItemModal(item);
       });
@@ -553,6 +559,8 @@
     console.log('Order submit result:', result);
 
     currentOrderId = order.id;
+    hasActiveOrder = true;
+    lastTrackedStatus = 'pending';
     localStorage.setItem('saji_active_order', order.id);
     cart = [];
     appliedPromo = null;
@@ -563,10 +571,11 @@
     submitBtn.textContent = 'تأكيد الطلب';
     $('#checkoutForm').reset();
 
-    showScreen('#trackingScreen');
-    $('#trackingOrderId').textContent = `رقم الطلب: ${order.id}`;
-    hideOrderCompleted();
-    updateTrackingTimeline('pending');
+    // Request notification permission
+    requestUserNotificationPermission();
+
+    // Go to menu with floating order card instead of tracking screen
+    showScreen('#menuScreen');
     startTrackingPoll();
   }
 
@@ -587,28 +596,48 @@
     if (trackingInterval) clearInterval(trackingInterval);
     trackingInterval = setInterval(async () => {
       if (!currentOrderId) return;
-      const orders = await getOrders();
-      const order = orders.find(o => o.id === currentOrderId);
-      if (order) {
-        updateTrackingTimeline(order.status);
-        if (order.status === 'done') {
-          // Order completed — show done UI
-          clearInterval(trackingInterval);
-          trackingInterval = null;
-          currentOrderId = null;
-          localStorage.removeItem('saji_active_order');
-          updateTrackingTimeline('done');
-          showOrderCompleted();
-        }
-      } else {
-        // Order not found in active orders (already done/removed)
-        clearInterval(trackingInterval);
-        trackingInterval = null;
-        currentOrderId = null;
-        localStorage.removeItem('saji_active_order');
-        showOrderCompleted();
+      const status = await getOrderStatus(currentOrderId);
+      if (!status || status === 'not_found') {
+        // Order done or removed
+        clearTrackingState();
+        return;
+      }
+
+      // Update floating card status
+      updateFloatingOrderStatus(status);
+
+      // Update tracking timeline if on tracking screen
+      if ($('#trackingScreen').classList.contains('active')) {
+        updateTrackingTimeline(status);
+      }
+
+      // Notify user if status changed
+      if (lastTrackedStatus && status !== lastTrackedStatus) {
+        notifyStatusChange(status);
+      }
+      lastTrackedStatus = status;
+
+      if (status === 'done') {
+        clearTrackingState();
       }
     }, 4000);
+  }
+
+  function clearTrackingState() {
+    clearInterval(trackingInterval);
+    trackingInterval = null;
+    currentOrderId = null;
+    hasActiveOrder = false;
+    lastTrackedStatus = null;
+    localStorage.removeItem('saji_active_order');
+    updateFloatingOrderCard();
+    // If on tracking screen, show done
+    if ($('#trackingScreen').classList.contains('active')) {
+      updateTrackingTimeline('done');
+      showOrderCompleted();
+    }
+    // If on menu screen, re-enable floating cart if cart has items
+    floatingCart.style.display = cart.length > 0 ? 'flex' : 'none';
   }
 
   function showOrderCompleted() {
@@ -628,10 +657,72 @@
   }
 
   // ─── Stock Sync Poll ───────────────────────────────────────
-  // Poll every 30s for stock changes — the heavy lifting is done
-  // by the smart diff check inside loadAndRenderMenu()
+  // Poll every 30s for stock changes
   function startStockPoll() {
     setInterval(() => { loadAndRenderMenu(); }, 30000);
+  }
+
+  // ─── Floating Order Card ──────────────────────────────────
+  const STATUS_LABELS = {
+    pending: '⏳ قيد الانتظار',
+    cooking: '🔥 جاري التحضير',
+    delivery: '🚗 في الطريق',
+    done: '✅ تم التسليم',
+  };
+
+  function updateFloatingOrderCard() {
+    const card = $('#floatingOrderCard');
+    if (!card) return;
+    const menuActive = $('#menuScreen').classList.contains('active');
+    if (hasActiveOrder && currentOrderId && menuActive) {
+      card.style.display = 'flex';
+      $('#focOrderId').textContent = currentOrderId;
+    } else {
+      card.style.display = 'none';
+    }
+  }
+
+  function updateFloatingOrderStatus(status) {
+    const el = $('#focStatus');
+    if (el) el.textContent = STATUS_LABELS[status] || status;
+    // Update dot color
+    const dot = document.querySelector('.foc-dot');
+    if (dot) {
+      dot.className = 'foc-dot';
+      if (status === 'cooking') dot.classList.add('cooking');
+      else if (status === 'delivery') dot.classList.add('delivery');
+      else if (status === 'done') dot.classList.add('done');
+    }
+  }
+
+  // ─── User Notifications ──────────────────────────────────
+  function requestUserNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }
+
+  function sendUserNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body: body,
+          icon: 'asstes/saji_logo.png',
+          tag: 'saji-user-' + Date.now(),
+        });
+      } catch(e) { console.warn('Notification failed:', e); }
+    }
+  }
+
+  function notifyStatusChange(newStatus) {
+    const msgs = {
+      cooking: { title: '🔥 بدأ تحضير طلبك!', body: 'الطباخ بدأ بتحضير طلبك الآن' },
+      delivery: { title: '🚗 طلبك في الطريق!', body: 'طلبك في طريقه إليك الآن' },
+      done: { title: '✅ تم توصيل طلبك!', body: 'بالعافية! شكراً لاختيارك مطعم صاجي' },
+    };
+    if (msgs[newStatus]) {
+      sendUserNotification(msgs[newStatus].title, msgs[newStatus].body);
+    }
   }
 
   // ─── Event Listeners ───────────────────────────────────────
@@ -655,22 +746,29 @@
 
     // ─── Restore active order tracking ──────────────────────
     if (currentOrderId) {
-      showScreen('#trackingScreen');
-      $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
-      // Fetch current status immediately
-      getOrders().then(orders => {
-        const order = orders.find(o => o.id === currentOrderId);
-        if (order) {
-          updateTrackingTimeline(order.status);
+      hasActiveOrder = true;
+      // Stay on menu with floating card, fetch status
+      getOrderStatus(currentOrderId).then(status => {
+        if (status && status !== 'not_found') {
+          lastTrackedStatus = status;
+          updateFloatingOrderStatus(status);
+          updateFloatingOrderCard();
         } else {
-          // Order is done/not found — clear and go to menu
-          currentOrderId = null;
-          localStorage.removeItem('saji_active_order');
-          showScreen('#menuScreen');
+          clearTrackingState();
         }
       }).catch(() => {});
       startTrackingPoll();
+      updateFloatingOrderCard();
     }
+
+    // Floating order card click → go to tracking screen
+    $('#floatingOrderCard').addEventListener('click', () => {
+      if (!currentOrderId) return;
+      showScreen('#trackingScreen');
+      $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
+      hideOrderCompleted();
+      if (lastTrackedStatus) updateTrackingTimeline(lastTrackedStatus);
+    });
 
     itemModal.addEventListener('click', (e) => { if (e.target === itemModal) closeItemModal(); });
     $('#qtyMinus').addEventListener('click', () => {
@@ -716,9 +814,12 @@
 
     $('#newOrderBtn').addEventListener('click', () => {
       currentOrderId = null;
+      hasActiveOrder = false;
+      lastTrackedStatus = null;
       localStorage.removeItem('saji_active_order');
       if (trackingInterval) clearInterval(trackingInterval);
       hideOrderCompleted();
+      updateFloatingOrderCard();
       showScreen('#menuScreen');
     });
   }

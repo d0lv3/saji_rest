@@ -206,6 +206,22 @@ async function updateOrder(orderId, status) {
   return await apiPost({ action: 'updateOrder', orderId: orderId, status: status });
 }
 
+async function getCompletedOrders() {
+  try {
+    const result = await apiGet('getCompletedOrders');
+    if (result && result.success && result.data) return result.data;
+  } catch (err) { console.warn('getCompletedOrders failed:', err); }
+  return [];
+}
+
+async function getOrderStatus(orderId) {
+  try {
+    const result = await apiGet('getOrderStatus', { orderId: orderId });
+    if (result && result.success) return result.status;
+  } catch (err) { console.warn('getOrderStatus failed:', err); }
+  return null;
+}
+
 // ─── Promo Code Functions ────────────────────────────────────
 
 async function validatePromoCode(code) {

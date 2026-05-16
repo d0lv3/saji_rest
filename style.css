@@ -984,3 +984,71 @@ body {
 .install-dismiss:hover {
   background: var(--surface);
 }
+
+/* ─── Floating Order Status Card ─────────────────── */
+.floating-order-card {
+  position: fixed;
+  bottom: 20px;
+  right: 16px;
+  left: 16px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 4000;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+  transition: transform 0.2s;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.floating-order-card:active {
+  transform: scale(0.97);
+}
+.foc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fbbf24;
+  flex-shrink: 0;
+  animation: foc-pulse 1.5s ease-in-out infinite;
+}
+.foc-dot.cooking { background: #f97316; }
+.foc-dot.delivery { background: #22c55e; }
+.foc-dot.done { background: #22c55e; animation: none; }
+@keyframes foc-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+.foc-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.foc-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+.foc-status {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.foc-id {
+  font-size: 10px;
+  background: rgba(255,255,255,0.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.floating-order-card svg {
+  opacity: 0.6;
+  flex-shrink: 0;
+}
