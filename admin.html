@@ -5,23 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>لوحة التحكم — مطعم صاجي</title>
   <meta name="description" content="لوحة تحكم مطعم صاجي لإدارة الطلبات والقائمة">
-  <meta name="theme-color" content="#FFFDF8">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="manifest" href="manifest-admin.json">
+  <link rel="apple-touch-icon" href="asstes/saji_app_logo.png">
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
+
+<!-- ═══ INSTALL BANNER ═══ -->
+<div class="admin-install-banner" id="adminInstallBanner">
+  <img src="asstes/saji_logo.png" alt="صاجي" class="admin-install-logo">
+  <div class="admin-install-text">
+    <strong>ثبّت تطبيق صاجي أدمن</strong>
+    <span>وصول أسرع للوحة التحكم</span>
+  </div>
+  <button class="admin-install-btn" id="adminInstallBtn">تثبيت</button>
+  <button class="admin-install-dismiss" id="adminInstallDismiss">✕</button>
+</div>
 
 <!-- ═══ LOGIN SCREEN ═══ -->
 <div class="admin-login-overlay" id="loginOverlay">
   <div class="login-card">
     <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="login-logo">
     <h2>لوحة التحكم</h2>
-    <p class="login-subtitle">أدخل كلمة المرور للمتابعة</p>
     <form id="loginForm" autocomplete="off">
       <div class="login-input-wrap">
-        <input type="password" id="adminPassword" placeholder="كلمة المرور" autocomplete="current-password" required>
+        <input type="password" id="adminPassword" placeholder="كلمة المرور" required autocomplete="current-password">
         <button type="button" class="toggle-pass" id="togglePass">
-          <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         </button>
       </div>
       <div class="login-error" id="loginError"></div>
@@ -141,5 +153,54 @@
 
 <script src="data.js"></script>
 <script src="admin.js"></script>
+
+<!-- PWA Install Logic -->
+<script>
+(function() {
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  if (localStorage.getItem('admin_pwa_dismissed')) return;
+
+  var banner = document.getElementById('adminInstallBanner');
+  var installBtn = document.getElementById('adminInstallBtn');
+  var dismissBtn = document.getElementById('adminInstallDismiss');
+  var deferredPrompt = null;
+
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    banner.classList.add('visible');
+  });
+
+  if (isIOS && !window.navigator.standalone) {
+    installBtn.textContent = 'كيف؟';
+    setTimeout(function() { banner.classList.add('visible'); }, 500);
+  }
+
+  installBtn.addEventListener('click', function() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
+      banner.classList.remove('visible');
+    } else if (isIOS) {
+      var shareIcon = '<svg style="display:inline-block;vertical-align:middle;margin:0 2px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
+      banner.querySelector('.admin-install-text').innerHTML =
+        '<strong style="margin-bottom:6px;display:block;">لتثبيت التطبيق:</strong>' +
+        '<div style="font-size:12px;line-height:1.8;color:#666;">' +
+          '<div>١. اضغط على ' + shareIcon + ' في شريط Safari</div>' +
+          '<div>٢. اختر <strong>"إضافة إلى الشاشة الرئيسية"</strong></div>' +
+          '<div>٣. اضغط <strong>"إضافة"</strong></div>' +
+        '</div>';
+      installBtn.style.display = 'none';
+    }
+  });
+
+  dismissBtn.addEventListener('click', function() {
+    banner.classList.remove('visible');
+    localStorage.setItem('admin_pwa_dismissed', '1');
+  });
+})();
+</script>
 </body>
 </html>

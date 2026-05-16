@@ -1,0 +1,27 @@
+{
+  "name": "صاجي — لوحة التحكم",
+  "short_name": "صاجي أدمن",
+  "description": "لوحة تحكم مطعم صاجي لإدارة الطلبات والقائمة",
+  "start_url": "/admin.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFDF8",
+  "theme_color": "#1a1a2e",
+  "dir": "rtl",
+  "lang": "ar",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "asstes/saji_app_logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "asstes/saji_app_logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
