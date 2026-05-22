@@ -126,6 +126,36 @@
         await renderOrders();
       });
     });
+
+    // Attach decline buttons
+    document.querySelectorAll('.decline-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const orderId = btn.dataset.orderId;
+        const form = document.getElementById('decline-form-' + orderId);
+        if (form) {
+          const isVisible = form.style.display !== 'none';
+          form.style.display = isVisible ? 'none' : 'block';
+        }
+      });
+    });
+
+    document.querySelectorAll('.decline-confirm-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const orderId = btn.dataset.orderId;
+        const noteEl = document.getElementById('decline-note-' + orderId);
+        const note = noteEl ? noteEl.value.trim() : '';
+        if (!note) {
+          noteEl.style.borderColor = 'var(--danger)';
+          noteEl.setAttribute('placeholder', 'يرجى كتابة سبب الرفض');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = '...جاري الإلغاء';
+        await declineOrder(orderId, note);
+        _lastOrdersHash = '';
+        await renderOrders();
+      });
+    });
   }
 
   function renderOrderCard(order, currentStatus) {
@@ -145,12 +175,23 @@
     let actionsHtml = '<div class="order-actions">';
     if (currentStatus === 'pending') {
       actionsHtml += `<button class="order-action-btn cooking" data-action="cooking" data-order-id="${order.id}">🔥 بدء التحضير</button>`;
+      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">❌ رفض</button>`;
     } else if (currentStatus === 'cooking') {
       actionsHtml += `<button class="order-action-btn delivery" data-action="delivery" data-order-id="${order.id}">🚗 إرسال للتوصيل</button>`;
+      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">❌ رفض</button>`;
     } else if (currentStatus === 'delivery') {
       actionsHtml += `<button class="order-action-btn done" data-action="done" data-order-id="${order.id}">✅ تم التسليم</button>`;
+      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">❌ رفض</button>`;
     }
     actionsHtml += '</div>';
+
+    // Decline form (hidden by default)
+    actionsHtml += `
+      <div class="decline-form" id="decline-form-${order.id}" style="display:none;">
+        <textarea id="decline-note-${order.id}" class="decline-note" placeholder="سبب رفض الطلب..." rows="2"></textarea>
+        <button class="order-action-btn decline-confirm decline-confirm-btn" data-order-id="${order.id}">تأكيد رفض الطلب</button>
+      </div>
+    `;
 
     return `
       <div class="order-card">

@@ -1052,3 +1052,60 @@ body {
   opacity: 0.6;
   flex-shrink: 0;
 }
+
+/* ─── Delivery Status Message ────────────────────── */
+.delivery-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease;
+}
+.delivery-msg svg {
+  flex-shrink: 0;
+}
+.delivery-msg-add {
+  background: #FFF3E8;
+  color: #E67E00;
+  border: 1px solid rgba(255, 107, 0, 0.15);
+}
+.delivery-msg-free {
+  background: #E8F8EF;
+  color: #1E8449;
+  border: 1px solid rgba(39, 174, 96, 0.15);
+}
+.free-delivery-label {
+  color: var(--success);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* ─── Order Cancelled Message ────────────────────── */
+.order-cancelled-msg {
+  margin-top: 20px;
+  animation: bounceIn 0.6s ease;
+}
+.cancelled-icon {
+  margin-bottom: 4px;
+}
+.cancel-note-box {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #FDEDED;
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  border-radius: var(--radius-sm);
+  color: #C0392B;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: center;
+}
+.cancel-note-box::before {
+  content: '📝 سبب الرفض: ';
+  font-weight: 700;
+}

@@ -69,7 +69,7 @@ function initializeSheets() {
   let ordersSheet = ss.getSheetByName(SHEET_ORDERS);
   if (!ordersSheet) {
     ordersSheet = ss.insertSheet(SHEET_ORDERS);
-    ordersSheet.appendRow(['id','items','subtotal','deliveryFee','discount','promoCode','total','phone','address','name','status','timestamp']);
+    ordersSheet.appendRow(['id','items','subtotal','deliveryFee','discount','promoCode','total','phone','address','name','status','timestamp','cancelNote']);
   }
   
   // PromoCodes Sheet
@@ -115,6 +115,7 @@ function doPost(e) {
     switch(data.action) {
       case 'saveOrder':   result = saveOrderData(data.order); break;
       case 'updateOrder': result = updateOrderStatus(data.orderId, data.status); break;
+      case 'declineOrder': result = declineOrderWithNote(data.orderId, data.note); break;
       case 'toggleStock': result = toggleItemStock(data.itemId, data.inStock); break;
       case 'setStatus':   result = setRestaurantStatus(data.isOpen); break;
       case 'clearCompleted': result = clearCompletedOrders(); break;
@@ -190,6 +191,7 @@ function parseOrderRow(row) {
     name: row[9],
     status: row[10],
     timestamp: Number(row[11]),
+    cancelNote: row[12] || '',
   };
 }
 
@@ -200,7 +202,7 @@ function getOrdersData() {
   for (var i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     var status = rows[i][10];
-    if (status === 'done') continue;
+    if (status === 'done' || status === 'cancelled') continue;
     orders.push(parseOrderRow(rows[i]));
   }
   orders.reverse();
@@ -225,7 +227,7 @@ function getOrderStatusById(orderId) {
   var rows = sheet.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0] === orderId) {
-      return { success: true, status: rows[i][10] };
+      return { success: true, status: rows[i][10], cancelNote: rows[i][12] || '' };
     }
   }
   return { success: false, status: 'not_found' };
@@ -247,6 +249,19 @@ function updateOrderStatus(orderId, newStatus) {
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === orderId) {
       sheet.getRange(i + 1, 11).setValue(newStatus);
+      return { success: true };
+    }
+  }
+  return { error: 'Order not found' };
+}
+
+function declineOrderWithNote(orderId, note) {
+  const sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === orderId) {
+      sheet.getRange(i + 1, 11).setValue('cancelled');
+      sheet.getRange(i + 1, 13).setValue(note || '');
       return { success: true };
     }
   }

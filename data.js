@@ -11,7 +11,12 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwsHnVxOr4QFtVqZnJQz8Kd
 // ══════════════════════════════════════════════════════════════
 
 // ─── Constants ───────────────────────────────────────────────
-const DELIVERY_FEE = 0;
+const DELIVERY_FEE_AMOUNT = 1000;
+const FREE_DELIVERY_THRESHOLD = 5000;
+
+function getDeliveryFee(subtotal) {
+  return subtotal < FREE_DELIVERY_THRESHOLD ? DELIVERY_FEE_AMOUNT : 0;
+}
 const MIN_ORDER = 3000;
 const CATEGORIES = ['الصاج', 'الكص', 'البركر', 'الريزو', 'الفنكر', 'المشاريب'];
 const CATEGORY_ICONS = {
@@ -220,6 +225,23 @@ async function getOrderStatus(orderId) {
     if (result && result.success) return result.status;
   } catch (err) { console.warn('getOrderStatus failed:', err); }
   return null;
+}
+
+async function getOrderStatusFull(orderId) {
+  try {
+    const result = await apiGet('getOrderStatus', { orderId: orderId });
+    if (result && result.success) {
+      return {
+        status: result.status,
+        cancelNote: result.cancelNote || '',
+      };
+    }
+  } catch (err) { console.warn('getOrderStatusFull failed:', err); }
+  return null;
+}
+
+async function declineOrder(orderId, note) {
+  return await apiPost({ action: 'declineOrder', orderId: orderId, note: note || '' });
 }
 
 // ─── Promo Code Functions ────────────────────────────────────
