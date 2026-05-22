@@ -1109,3 +1109,182 @@ body {
   content: '📝 سبب الرفض: ';
   font-weight: 700;
 }
+
+/* ─── PWA Install Gate Overlay ─────────────────────── */
+.pwa-gate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+  animation: pwaGateFadeIn 0.5s ease;
+  padding: 24px;
+}
+@keyframes pwaGateFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.pwa-gate-overlay.pwa-gate-hiding {
+  animation: pwaGateFadeOut 0.4s ease forwards;
+}
+@keyframes pwaGateFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.pwa-gate-content {
+  text-align: center;
+  max-width: 380px;
+  width: 100%;
+  animation: pwaGateSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes pwaGateSlideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pwa-gate-logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 8px 24px rgba(231, 130, 0, 0.3));
+  animation: pwaLogoFloat 3s ease-in-out infinite;
+}
+@keyframes pwaLogoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.pwa-gate-title {
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+}
+
+.pwa-gate-subtitle {
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  margin: 0 0 28px 0;
+}
+
+.pwa-gate-features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.pwa-gate-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: right;
+}
+.pwa-gate-feature span {
+  color: rgba(255,255,255,0.9);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.pwa-gate-feature svg {
+  flex-shrink: 0;
+}
+
+.pwa-gate-install-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary) 0%, #e67e22 100%);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(231, 130, 0, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  animation: pwaInstallPulse 2.5s ease-in-out infinite;
+}
+.pwa-gate-install-btn:active {
+  transform: scale(0.97);
+}
+@keyframes pwaInstallPulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(231, 130, 0, 0.4); }
+  50% { box-shadow: 0 4px 32px rgba(231, 130, 0, 0.65); }
+}
+
+/* iOS Instructions */
+.pwa-gate-ios {
+  margin-bottom: 20px;
+}
+.pwa-gate-ios-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 14px 0;
+}
+.pwa-gate-ios-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pwa-gate-ios-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: right;
+}
+.pwa-gate-ios-step span {
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pwa-gate-ios-step strong {
+  color: #fff;
+}
+.step-num {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pwa-gate-skip {
+  margin-top: 20px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.pwa-gate-skip:hover {
+  color: rgba(255,255,255,0.55);
+}
