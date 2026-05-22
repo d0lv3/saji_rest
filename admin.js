@@ -38,23 +38,8 @@
   });
 
   // ─── Browser Notifications ─────────────────────────────────
-  function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }
-
-  function sendBrowserNotification(title, body) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body: body,
-          icon: 'asstes/saji_logo.png',
-          tag: 'saji-admin-' + Date.now(),
-        });
-      } catch (e) { console.warn('Notification failed:', e); }
-    }
-  }
+  // Push notifications are now handled by Firebase Cloud Messaging (server-side).
+  // Admin receives push via FCM when new orders arrive.
 
   // ─── Audio Alert (Web Audio API) ────────────────────────────
   function playNotificationSound() {
