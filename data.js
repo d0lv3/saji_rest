@@ -14,15 +14,15 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwsHnVxOr4QFtVqZnJQz8Kd
 // ⬇️  PASTE YOUR FIREBASE CONFIG HERE  ⬇️
 // ══════════════════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyDPid05Ev3wxbWPePIWCjQV9KXyHnmRLfM',
+  authDomain: 'saji-restaurant.firebaseapp.com',
+  projectId: 'saji-restaurant',
+  storageBucket: 'saji-restaurant.firebasestorage.app',
+  messagingSenderId: '356430027743',
+  appId: '1:356430027743:web:12d3a36cabd5555adc426a',
 };
 // ⬇️  PASTE YOUR VAPID KEY HERE (Firebase Console → Cloud Messaging → Web Push certificates)  ⬇️
-const FCM_VAPID_KEY = 'YOUR_VAPID_KEY';
+const FCM_VAPID_KEY = 'BIFqdoOVACa4TfSz5_SqREK0ustN24abyuoo9VmsvmA3LcOJG7YW13ra86wwPp1v2SQLV2_Gc0YCTRegQPHHTsU';
 // ══════════════════════════════════════════════════════════════
 
 // ─── Firebase Messaging Setup ────────────────────────────────

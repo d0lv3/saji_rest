@@ -29,10 +29,9 @@ const ADMIN_PASSWORD = 'mustafa0520';
 // ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
-// ⬇️  Firebase Cloud Messaging Server Key  ⬇️
-// (Firebase Console → Project Settings → Cloud Messaging → Server key)
+// ⬇️  Firebase Project ID (from Firebase Console → Project Settings)  ⬇️
 // ══════════════════════════════════════════════════════════════
-const FCM_SERVER_KEY = 'YOUR_FCM_SERVER_KEY';
+const FCM_PROJECT_ID = 'saji-restaurant';
 // ══════════════════════════════════════════════════════════════
 
 function getSpreadsheet() {
@@ -392,7 +391,7 @@ function savePushTokenData(orderId, fcmToken) {
 
 function sendPushToOrder(orderId, title, body) {
   try {
-    if (FCM_SERVER_KEY === 'YOUR_FCM_SERVER_KEY') return; // Not configured
+    if (!FCM_PROJECT_ID || FCM_PROJECT_ID === 'YOUR_PROJECT_ID') return;
     
     var ss = getSpreadsheet();
     var sheet = ss.getSheetByName(SHEET_PUSH);
@@ -412,30 +411,37 @@ function sendPushToOrder(orderId, title, body) {
 
 function sendFCMPush(fcmToken, title, body) {
   try {
-    var payload = {
-      to: fcmToken,
-      notification: {
-        title: title,
-        body: body,
-        icon: 'asstes/saji_app_logo.png',
-      },
-      webpush: {
+    var message = {
+      message: {
+        token: fcmToken,
         notification: {
-          vibrate: [200, 100, 200],
+          title: title,
+          body: body,
+        },
+        webpush: {
+          notification: {
+            icon: 'asstes/saji_app_logo.png',
+            vibrate: [200, 100, 200],
+          },
         },
       },
     };
     
-    UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        'Authorization': 'key=' + FCM_SERVER_KEY,
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true,
-    });
+    var accessToken = ScriptApp.getOAuthToken();
+    
+    UrlFetchApp.fetch(
+      'https://fcm.googleapis.com/v1/projects/' + FCM_PROJECT_ID + '/messages:send',
+      {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+        },
+        payload: JSON.stringify(message),
+        muteHttpExceptions: true,
+      }
+    );
   } catch (err) {
-    Logger.log('FCM send error: ' + err.message);
+    Logger.log('FCM v1 send error: ' + err.message);
   }
 }

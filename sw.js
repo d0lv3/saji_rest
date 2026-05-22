@@ -8,12 +8,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 // Firebase config — must match the config in index.html
 // ⬇️  PASTE YOUR FIREBASE CONFIG HERE  ⬇️
 firebase.initializeApp({
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyDPid05Ev3wxbWPePIWCjQV9KXyHnmRLfM',
+  authDomain: 'saji-restaurant.firebaseapp.com',
+  projectId: 'saji-restaurant',
+  storageBucket: 'saji-restaurant.firebasestorage.app',
+  messagingSenderId: '356430027743',
+  appId: '1:356430027743:web:12d3a36cabd5555adc426a',
 });
 
 const messaging = firebase.messaging();
