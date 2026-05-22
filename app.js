@@ -667,15 +667,10 @@
       if (status === 'cancelled') {
         const note = result.cancelNote || '';
         showOrderCancelled(note);
-        notifyStatusChange('cancelled', note);
         clearTrackingStateKeepScreen();
         return;
       }
 
-      // Notify user if status changed
-      if (lastTrackedStatus && status !== lastTrackedStatus) {
-        notifyStatusChange(status);
-      }
       lastTrackedStatus = status;
 
       if (status === 'done') {
@@ -788,35 +783,10 @@
   }
 
   // ─── User Notifications ──────────────────────────────────
-  function requestUserNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }
-
-  function sendUserNotification(title, body) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body: body,
-          icon: 'asstes/saji_logo.png',
-          tag: 'saji-user-' + Date.now(),
-        });
-      } catch(e) { console.warn('Notification failed:', e); }
-    }
-  }
-
-  function notifyStatusChange(newStatus, cancelNote) {
-    const msgs = {
-      cooking: { title: '🔥 بدأ تحضير طلبك!', body: 'الطباخ بدأ بتحضير طلبك الآن' },
-      delivery: { title: '🚗 طلبك في الطريق!', body: 'طلبك في طريقه إليك الآن' },
-      done: { title: '✅ تم توصيل طلبك!', body: 'بالعافية! شكراً لاختيارك مطعم صاجي' },
-      cancelled: { title: '❌ تم إلغاء طلبك', body: cancelNote ? 'السبب: ' + cancelNote : 'تم إلغاء طلبك من قبل المطعم' },
-    };
-    if (msgs[newStatus]) {
-      sendUserNotification(msgs[newStatus].title, msgs[newStatus].body);
-    }
-  }
+  // Push notifications are now handled by Firebase Cloud Messaging (server-side).
+  // The old client-side notification system has been removed to avoid duplicates.
+  // FCM handles: cooking, delivery, done, cancelled status notifications.
+  // Permission is requested by initFirebaseMessaging() in data.js.
 
   // ─── Event Listeners ───────────────────────────────────────
   async function init() {
