@@ -36,6 +36,22 @@ function setAdminPassword(pw) {
 // ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
+// Admin Token Validation — server-side session enforcement
+// The token is stored in Script Properties on login and checked
+// on every admin-only action. This prevents unauthenticated access.
+// ══════════════════════════════════════════════════════════════
+var ADMIN_ACTIONS_POST = ['updateOrder', 'declineOrder', 'toggleStock', 'setStatus', 'clearCompleted'];
+var ADMIN_ACTIONS_GET = ['getOrders', 'getCompletedOrders', 'getPromoCodes'];
+var VALID_ORDER_STATUSES = ['cooking', 'delivery', 'done'];
+
+function isValidAdminToken(token) {
+  if (!token) return false;
+  var stored = PropertiesService.getScriptProperties().getProperty('admin_session_token');
+  return stored && token === stored;
+}
+// ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
 // ⬇️  Firebase Project ID (from Firebase Console → Project Settings)  ⬇️
 // ══════════════════════════════════════════════════════════════
 const FCM_PROJECT_ID = 'saji-restaurant';
@@ -113,6 +129,16 @@ function doGet(e) {
   let result;
   try {
     const action = e.parameter.action;
+
+    // Enforce admin token on protected GET actions
+    if (ADMIN_ACTIONS_GET.indexOf(action) !== -1) {
+      if (!isValidAdminToken(e.parameter.token)) {
+        result = { error: 'Unauthorized', code: 401 };
+        return ContentService.createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     switch(action) {
       case 'getMenu':     result = getMenuData(); break;
       case 'getOrders':   result = getOrdersData(); break;
@@ -136,6 +162,16 @@ function doPost(e) {
   let result;
   try {
     const data = JSON.parse(e.postData.contents);
+
+    // Enforce admin token on protected POST actions
+    if (ADMIN_ACTIONS_POST.indexOf(data.action) !== -1) {
+      if (!isValidAdminToken(data.token)) {
+        result = { error: 'Unauthorized', code: 401 };
+        return ContentService.createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     switch(data.action) {
       case 'saveOrder':   result = saveOrderData(data.order); break;
       case 'updateOrder': result = updateOrderStatus(data.orderId, data.status); break;
@@ -259,23 +295,79 @@ function getOrderStatusById(orderId) {
 }
 
 function saveOrderData(order) {
+  // ── Input sanitization & length limits ──
+  var safePhone = String(order.phone || '').substring(0, 15);
+  var safeAddress = String(order.address || '').substring(0, 500);
+  var safeName = String(order.name || '').substring(0, 100);
+  var safeId = String(order.id || '').substring(0, 40);
+
+  // ── Rate limiting: max 5 orders per phone per 10 minutes ──
+  var cache = CacheService.getScriptCache();
+  var rateKey = 'order_rate_' + safePhone;
+  var rateCount = parseInt(cache.get(rateKey) || '0');
+  if (rateCount >= 5) {
+    return { error: 'Too many orders. Please wait before ordering again.', code: 429 };
+  }
+  cache.put(rateKey, String(rateCount + 1), 600); // 10 minute window
+
+  // ── Server-side price recalculation ──
+  var serverTotal = 0;
+  var menuData = getMenuPriceMap();
+  var safeItems = [];
+  if (order.items && Array.isArray(order.items)) {
+    order.items.forEach(function(item) {
+      var qty = Math.max(1, Math.min(50, parseInt(item.qty) || 1));
+      var safeName2 = String(item.name || '').substring(0, 200);
+      var safeNotes = String(item.notes || '').substring(0, 300);
+      var menuPrice = menuData[safeName2];
+      var unitPrice = menuPrice != null ? menuPrice : Number(item.unitPrice) || 0;
+      serverTotal += unitPrice * qty;
+      var safeAddons = [];
+      if (item.addons && Array.isArray(item.addons)) {
+        safeAddons = item.addons.slice(0, 10).map(function(a) { return String(a).substring(0, 100); });
+      }
+      safeItems.push({ name: safeName2, qty: qty, unitPrice: unitPrice, addons: safeAddons, notes: safeNotes });
+    });
+  }
+
+  // Calculate delivery fee server-side
+  var deliveryFee = serverTotal < 5000 ? 1000 : 0;
+
+  // Validate promo code server-side
+  var discount = 0;
+  var safePromo = String(order.promoCode || '');
+  if (safePromo) {
+    var promoResult = validatePromoCode(safePromo);
+    if (promoResult.success && promoResult.promo) {
+      var promo = promoResult.promo;
+      if (promo.type === 'percent') discount = Math.round(serverTotal * promo.value / 100);
+      else if (promo.type === 'fixed') discount = Math.min(promo.value, serverTotal);
+    }
+  }
+
+  var finalTotal = Math.max(0, serverTotal + deliveryFee - discount);
+
   const sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
   sheet.appendRow([
-    order.id, JSON.stringify(order.items), order.subtotal, order.deliveryFee,
-    order.discount, order.promoCode || '', order.total, order.phone,
-    order.address, order.name || '', order.status, order.timestamp,
+    safeId, JSON.stringify(safeItems), serverTotal, deliveryFee,
+    discount, safePromo, finalTotal, safePhone,
+    safeAddress, safeName, 'pending', Date.now(),
   ]);
   
   // Notify admin of new order
   sendPushToAdmin(
     '📥 طلب جديد!',
-    'طلب #' + order.id + ' — ' + order.name + ' — ' + order.total + ' د.ع'
+    'طلب #' + safeId + ' — ' + safeName + ' — ' + finalTotal + ' د.ع'
   );
   
-  return { success: true, orderId: order.id };
+  return { success: true, orderId: safeId };
 }
 
 function updateOrderStatus(orderId, newStatus) {
+  // Whitelist valid statuses
+  if (VALID_ORDER_STATUSES.indexOf(newStatus) === -1) {
+    return { error: 'Invalid status: ' + newStatus };
+  }
   const sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
@@ -297,14 +389,15 @@ function updateOrderStatus(orderId, newStatus) {
 }
 
 function declineOrderWithNote(orderId, note) {
+  var safeNote = String(note || '').substring(0, 500);
   const sheet = getSpreadsheet().getSheetByName(SHEET_ORDERS);
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === orderId) {
       sheet.getRange(i + 1, 11).setValue('cancelled');
-      sheet.getRange(i + 1, 13).setValue(note || '');
+      sheet.getRange(i + 1, 13).setValue(safeNote);
       // Send push notification with cancel reason
-      var body = note ? 'السبب: ' + note : 'تم إلغاء طلبك من قبل المطعم';
+      var body = safeNote ? 'السبب: ' + safeNote : 'تم إلغاء طلبك من قبل المطعم';
       sendPushToOrder(orderId, '❌ تم إلغاء طلبك', body);
       return { success: true };
     }
@@ -357,10 +450,37 @@ function validatePromoCode(code) {
 
 // ─── Admin Login ──────────────────────────────────────────────
 function validateAdminLogin(password) {
-  if (password === getAdminPassword()) {
-    return { success: true, token: Utilities.getUuid() };
+  // Brute-force protection: max 5 attempts per 10 minutes
+  var cache = CacheService.getScriptCache();
+  var lockKey = 'login_attempts';
+  var attempts = parseInt(cache.get(lockKey) || '0');
+  if (attempts >= 5) {
+    return { success: false, error: 'Too many login attempts. Please wait 10 minutes.' };
   }
+
+  if (password === getAdminPassword()) {
+    // Reset attempts on success
+    cache.remove(lockKey);
+    // Generate a new session token and persist it server-side
+    var token = Utilities.getUuid();
+    PropertiesService.getScriptProperties().setProperty('admin_session_token', token);
+    return { success: true, token: token };
+  }
+
+  // Increment failed attempts
+  cache.put(lockKey, String(attempts + 1), 600); // 10 minute window
   return { success: false };
+}
+
+// ─── Menu Price Map (for server-side validation) ─────────────
+function getMenuPriceMap() {
+  var sheet = getSpreadsheet().getSheetByName(SHEET_MENU);
+  var rows = sheet.getDataRange().getValues();
+  var map = {};
+  for (var i = 1; i < rows.length; i++) {
+    map[rows[i][1]] = Number(rows[i][4]); // name → price
+  }
+  return map;
 }
 
 // ─── Restaurant Status ────────────────────────────────────────

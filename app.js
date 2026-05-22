@@ -166,15 +166,15 @@
 
   function renderItemCard(item) {
     const imgHtml = item.image
-      ? `<img src="${item.image}" alt="${item.name}" class="item-img" loading="lazy">`
+      ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="item-img" loading="lazy">`
       : `<div class="item-placeholder">${CATEGORY_ICONS[item.category] || '🍽️'}</div>`;
 
     return `
-      <div class="item-card ${item.inStock ? '' : 'out-of-stock'}" data-id="${item.id}">
+      <div class="item-card ${item.inStock ? '' : 'out-of-stock'}" data-id="${escapeHtml(item.id)}">
         ${imgHtml}
         <div class="item-info">
-          <h3>${item.name}</h3>
-          <p class="item-desc">${item.description}</p>
+          <h3>${escapeHtml(item.name)}</h3>
+          <p class="item-desc">${escapeHtml(item.description)}</p>
           <div class="item-price">${formatPrice(item.price)}</div>
         </div>
         ${!item.inStock ? '<span class="stock-badge">نفد</span>' : ''}
@@ -240,7 +240,7 @@
 
     const imgContainer = $('#modalImageContainer');
     if (item.image) {
-      imgContainer.innerHTML = `<img src="${item.image}" alt="${item.name}" class="modal-img">`;
+      imgContainer.innerHTML = `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="modal-img">`;
     } else {
       imgContainer.innerHTML = `<div class="modal-img-placeholder">${CATEGORY_ICONS[item.category] || '🍽️'}</div>`;
     }
@@ -251,8 +251,8 @@
       addonsSection.style.display = 'block';
       addonsList.innerHTML = item.addons.map(addon => `
         <div class="addon-item">
-          <input type="checkbox" id="addon-${addon.id}" data-id="${addon.id}" data-price="${addon.price}">
-          <label for="addon-${addon.id}">${addon.name}</label>
+          <input type="checkbox" id="addon-${escapeHtml(addon.id)}" data-id="${escapeHtml(addon.id)}" data-price="${parseInt(addon.price) || 0}">
+          <label for="addon-${escapeHtml(addon.id)}">${escapeHtml(addon.name)}</label>
           <span class="addon-price">+${formatPrice(addon.price)}</span>
         </div>
       `).join('');
@@ -404,17 +404,17 @@
     cartBody.innerHTML = cart.map(item => `
       <div class="cart-item">
         <div class="cart-item-info">
-          <h4>${item.name}</h4>
-          ${item.addonNames.length ? `<div class="cart-item-addons">+ ${item.addonNames.join('، ')}</div>` : ''}
-          ${item.notes ? `<div class="cart-item-notes">📝 ${item.notes}</div>` : ''}
+          <h4>${escapeHtml(item.name)}</h4>
+          ${item.addonNames.length ? `<div class="cart-item-addons">+ ${item.addonNames.map(a => escapeHtml(a)).join('، ')}</div>` : ''}
+          ${item.notes ? `<div class="cart-item-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
           <div class="cart-item-qty">
-            <button onclick="window._cartQty('${item.cartId}', -1)">−</button>
+            <button onclick="window._cartQty('${escapeHtml(item.cartId)}', -1)">−</button>
             <span>${item.qty}</span>
-            <button onclick="window._cartQty('${item.cartId}', 1)">+</button>
+            <button onclick="window._cartQty('${escapeHtml(item.cartId)}', 1)">+</button>
           </div>
         </div>
         <div class="cart-item-price">${formatPrice(item.unitPrice * item.qty)}</div>
-        <button class="cart-item-remove" onclick="window._cartRemove('${item.cartId}')">🗑</button>
+        <button class="cart-item-remove" onclick="window._cartRemove('${escapeHtml(item.cartId)}')">🗑</button>
       </div>
     `).join('');
 
@@ -508,7 +508,7 @@
     let html = '<h3 style="font-size:15px;font-weight:700;margin-bottom:12px;">ملخص الطلب</h3>';
     cart.forEach(item => {
       html += `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
-        <span>${item.name} × ${item.qty}</span>
+        <span>${escapeHtml(item.name)} × ${item.qty}</span>
         <span>${formatPrice(item.unitPrice * item.qty)}</span>
       </div>`;
     });
