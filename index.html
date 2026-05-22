@@ -271,18 +271,53 @@
 <script src="data.js"></script>
 <script src="app.js"></script>
 
-<!-- ═══ PWA INSTALL BANNER ═══ -->
-<div class="install-banner" id="installBanner">
-  <div class="install-banner-content">
-    <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="install-logo">
-    <div class="install-text">
-      <strong>أضف صاجي لشاشتك الرئيسية</strong>
-      <p>وصول أسرع بدون متصفح!</p>
+<!-- ═══ FULL-SCREEN MOBILE INSTALL OVERLAY ═══ -->
+<div class="pwa-gate-overlay" id="pwaGateOverlay">
+  <div class="pwa-gate-content">
+    <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="pwa-gate-logo">
+    <h2 class="pwa-gate-title">مطعم صاجي</h2>
+    <p class="pwa-gate-subtitle">ثبّت التطبيق للحصول على أفضل تجربة</p>
+
+    <div class="pwa-gate-features">
+      <div class="pwa-gate-feature">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span>وصول فوري بدون متصفح</span>
+      </div>
+      <div class="pwa-gate-feature">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span>إشعارات فورية لحالة طلبك</span>
+      </div>
+      <div class="pwa-gate-feature">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        <span>تجربة تطبيق كاملة على هاتفك</span>
+      </div>
     </div>
-  </div>
-  <div class="install-actions">
-    <button class="install-btn" id="installBtn">تثبيت</button>
-    <button class="install-dismiss" id="installDismiss">لاحقاً</button>
+
+    <button class="pwa-gate-install-btn" id="pwaGateInstallBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      تثبيت التطبيق
+    </button>
+
+    <!-- iOS instructions (hidden by default, shown on iOS) -->
+    <div class="pwa-gate-ios" id="pwaGateIOS" style="display:none;">
+      <p class="pwa-gate-ios-title">لتثبيت التطبيق:</p>
+      <div class="pwa-gate-ios-steps">
+        <div class="pwa-gate-ios-step">
+          <span class="step-num">١</span>
+          <span>اضغط على <svg style="display:inline-block;vertical-align:middle;margin:0 2px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> في شريط Safari</span>
+        </div>
+        <div class="pwa-gate-ios-step">
+          <span class="step-num">٢</span>
+          <span>اختر <strong>"إضافة إلى الشاشة الرئيسية"</strong></span>
+        </div>
+        <div class="pwa-gate-ios-step">
+          <span class="step-num">٣</span>
+          <span>اضغط <strong>"إضافة"</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <button class="pwa-gate-skip" id="pwaGateSkip">تصفح بدون تثبيت</button>
   </div>
 </div>
 
@@ -292,67 +327,61 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(function(){});
 }
 
-// ─── PWA Install Prompt ───────────────────────────────────
+// ─── PWA Install Gate (Mobile Only) ──────────────────────
 (function() {
-  var banner = document.getElementById('installBanner');
-  var installBtn = document.getElementById('installBtn');
-  var dismissBtn = document.getElementById('installDismiss');
+  var overlay = document.getElementById('pwaGateOverlay');
+  var installBtn = document.getElementById('pwaGateInstallBtn');
+  var skipBtn = document.getElementById('pwaGateSkip');
+  var iosInstructions = document.getElementById('pwaGateIOS');
   var deferredPrompt = null;
 
-  // Don't show if already dismissed or already installed
-  if (localStorage.getItem('pwa_dismissed') || window.matchMedia('(display-mode: standalone)').matches) {
+  // Already running as PWA — don't show
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    overlay.style.display = 'none';
     return;
   }
 
+  // Desktop — don't show
   var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   var isAndroid = /Android/.test(navigator.userAgent);
-  var isMobile = isIOS || isAndroid;
+  var isMobile = isIOS || isAndroid || (window.innerWidth <= 768);
+  if (!isMobile) {
+    overlay.style.display = 'none';
+    return;
+  }
 
-  if (!isMobile) return;
+  // Show the overlay
+  overlay.style.display = 'flex';
+
+  // iOS: show manual instructions, hide install button
+  if (isIOS) {
+    installBtn.style.display = 'none';
+    iosInstructions.style.display = 'block';
+  }
 
   // Android: catch native install prompt
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     deferredPrompt = e;
-    showBanner();
   });
-
-  // iOS: show custom instructions
-  if (isIOS) {
-    var isInStandalone = window.navigator.standalone;
-    if (!isInStandalone) {
-      installBtn.textContent = 'كيف؟';
-      setTimeout(showBanner, 500);
-    }
-  }
-
-  function showBanner() {
-    banner.classList.add('visible');
-  }
 
   installBtn.addEventListener('click', function() {
     if (deferredPrompt) {
       deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
-      banner.classList.remove('visible');
-    } else if (isIOS) {
-      // Show iOS 17/18 instructions with Apple share icon SVG
-      var shareIconSVG = '<svg style="display:inline-block;vertical-align:middle;margin:0 2px;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
-      banner.querySelector('.install-text').innerHTML =
-        '<strong style="font-size:14px;margin-bottom:8px;display:block;">لتثبيت التطبيق:</strong>' +
-        '<div style="font-size:13px;line-height:2;color:#555;">' +
-          '<div>١. اضغط على ' + shareIconSVG + ' في شريط Safari السفلي</div>' +
-          '<div>٢. مرر للأسفل واختر <strong>"إضافة إلى الشاشة الرئيسية"</strong></div>' +
-          '<div>٣. اضغط <strong>"إضافة"</strong> في الأعلى</div>' +
-        '</div>' +
-        '<p style="font-size:11px;color:#999;margin-top:6px;">لا تجد الخيار؟ اضغط "تحرير الإجراءات" وأضفه من القائمة</p>';
-      installBtn.style.display = 'none';
+      deferredPrompt.userChoice.then(function(choice) {
+        if (choice.outcome === 'accepted') {
+          overlay.style.display = 'none';
+        }
+        deferredPrompt = null;
+      });
     }
   });
 
-  dismissBtn.addEventListener('click', function() {
-    banner.classList.remove('visible');
-    localStorage.setItem('pwa_dismissed', '1');
+  skipBtn.addEventListener('click', function() {
+    overlay.classList.add('pwa-gate-hiding');
+    setTimeout(function() {
+      overlay.style.display = 'none';
+    }, 400);
   });
 })();
 </script>
