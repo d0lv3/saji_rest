@@ -150,9 +150,9 @@
     let itemsHtml = '<ul class="order-items">';
     order.items.forEach(item => {
       itemsHtml += `<li>
-        <strong>${item.name}</strong> × ${item.qty} — ${formatPrice(item.unitPrice * item.qty)}
-        ${item.addons && item.addons.length ? `<div class="item-addons">+ ${item.addons.join('، ')}</div>` : ''}
-        ${item.notes ? `<div class="item-notes">📝 ${item.notes}</div>` : ''}
+        <strong>${escapeHtml(item.name)}</strong> × ${parseInt(item.qty) || 0} — ${formatPrice(item.unitPrice * item.qty)}
+        ${item.addons && item.addons.length ? `<div class="item-addons">+ ${item.addons.map(a => escapeHtml(a)).join('، ')}</div>` : ''}
+        ${item.notes ? `<div class="item-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
       </li>`;
     });
     itemsHtml += '</ul>';
@@ -185,9 +185,9 @@
           <span class="order-time">${time} · ${date}</span>
         </div>
         <div class="order-card-body">
-          <div class="order-field"><span class="field-label">📞 الهاتف:</span><span>${order.phone}</span></div>
-          <div class="order-field"><span class="field-label">📍 العنوان:</span><span>${order.address}</span></div>
-          ${order.name ? `<div class="order-field"><span class="field-label">👤 الاسم:</span><span>${order.name}</span></div>` : ''}
+          <div class="order-field"><span class="field-label">📞 الهاتف:</span><span>${escapeHtml(order.phone)}</span></div>
+          <div class="order-field"><span class="field-label">📍 العنوان:</span><span>${escapeHtml(order.address)}</span></div>
+          ${order.name ? `<div class="order-field"><span class="field-label">👤 الاسم:</span><span>${escapeHtml(order.name)}</span></div>` : ''}
           ${itemsHtml}
         </div>
         <div class="order-card-total">
@@ -237,16 +237,16 @@
     list.innerHTML = orders.map(order => {
       const time = getTimeString(order.timestamp);
       const date = getDateString(order.timestamp);
-      const itemsSummary = order.items.map(i => `${i.name} ×${i.qty}`).join('، ');
+      const itemsSummary = order.items.map(i => `${escapeHtml(i.name)} ×${parseInt(i.qty) || 0}`).join('، ');
       return `
         <div class="completed-order-row">
           <div class="cor-header">
-            <span class="cor-id">${order.id}</span>
+            <span class="cor-id">${escapeHtml(order.id)}</span>
             <span class="cor-time">${time} · ${date}</span>
           </div>
           <div class="cor-items">${itemsSummary}</div>
           <div class="cor-footer">
-            <span>${order.name || order.phone}</span>
+            <span>${escapeHtml(order.name || order.phone)}</span>
             <span class="cor-total">${formatPrice(order.total)}</span>
           </div>
         </div>

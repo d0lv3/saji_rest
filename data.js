@@ -53,7 +53,7 @@ async function initFirebaseMessaging() {
       vapidKey: FCM_VAPID_KEY,
       serviceWorkerRegistration: swReg,
     });
-    console.log('FCM Token:', _fcmToken);
+    console.debug('FCM token obtained');
 
     // Handle foreground messages (app is open and visible)
     messaging.onMessage((payload) => {
@@ -179,6 +179,12 @@ async function apiGet(action, params) {
     });
   }
 
+  // Attach admin token for authenticated requests
+  var adminToken = sessionStorage.getItem('admin_token');
+  if (adminToken) {
+    url += '&token=' + encodeURIComponent(adminToken);
+  }
+
   // Deduplicate: if this exact request is already in-flight, reuse it
   if (_inflightRequests[url]) {
     return _inflightRequests[url];
@@ -203,6 +209,12 @@ async function apiGet(action, params) {
 
 async function apiPost(body) {
   try {
+    // Attach admin token for authenticated requests
+    var adminToken = sessionStorage.getItem('admin_token');
+    if (adminToken) {
+      body.token = adminToken;
+    }
+
     const res = await fetch(API_URL, {
       method: 'POST',
       redirect: 'follow',
@@ -340,7 +352,7 @@ function formatPrice(amount) {
 }
 
 function generateOrderId() {
-  return 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+  return 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 }
 
 function getTimeString(timestamp) {
@@ -356,4 +368,15 @@ function getDateString(timestamp) {
 const PHONE_REGEX = /^07[578]\d{8}$/;
 function validatePhone(phone) {
   return PHONE_REGEX.test(phone);
+}
+
+// ─── HTML Escape (XSS Prevention) ────────────────────────────
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
