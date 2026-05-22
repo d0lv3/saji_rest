@@ -608,8 +608,11 @@
     submitBtn.textContent = 'تأكيد الطلب';
     $('#checkoutForm').reset();
 
-    // Request notification permission
-    requestUserNotificationPermission();
+    // Save FCM push token with the order for background notifications
+    const fcmToken = getFCMToken();
+    if (fcmToken) {
+      savePushToken(order.id, fcmToken).catch(() => {});
+    }
 
     // Show tracking screen first
     showScreen('#trackingScreen');
@@ -833,6 +836,9 @@
 
     // Fetch fresh data in background (non-blocking)
     loadAndRenderMenu();
+
+    // Initialize Firebase Push Notifications
+    initFirebaseMessaging().catch(() => {});
 
     // ─── Restore active order tracking ──────────────────────
     if (currentOrderId) {
