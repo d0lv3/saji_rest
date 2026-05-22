@@ -10,6 +10,81 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbwsHnVxOr4QFtVqZnJQz8Kdx_rLyUwPsTV4LDpRxT-ahTlGiNKV4g2-1hG8DDLZI71C/exec';
 // ══════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════
+// ⬇️  PASTE YOUR FIREBASE CONFIG HERE  ⬇️
+// ══════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: 'YOUR_API_KEY',
+  authDomain: 'YOUR_PROJECT.firebaseapp.com',
+  projectId: 'YOUR_PROJECT_ID',
+  storageBucket: 'YOUR_PROJECT.appspot.com',
+  messagingSenderId: 'YOUR_SENDER_ID',
+  appId: 'YOUR_APP_ID',
+};
+// ⬇️  PASTE YOUR VAPID KEY HERE (Firebase Console → Cloud Messaging → Web Push certificates)  ⬇️
+const FCM_VAPID_KEY = 'YOUR_VAPID_KEY';
+// ══════════════════════════════════════════════════════════════
+
+// ─── Firebase Messaging Setup ────────────────────────────────
+let _fcmToken = null;
+
+async function initFirebaseMessaging() {
+  try {
+    if (!firebase || !firebase.messaging) {
+      console.warn('Firebase SDK not loaded');
+      return null;
+    }
+
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const messaging = firebase.messaging();
+
+    // Request notification permission
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.warn('Notification permission denied');
+      return null;
+    }
+
+    // Get SW registration (already registered in index.html)
+    const swReg = await navigator.serviceWorker.ready;
+
+    // Get FCM token
+    _fcmToken = await messaging.getToken({
+      vapidKey: FCM_VAPID_KEY,
+      serviceWorkerRegistration: swReg,
+    });
+    console.log('FCM Token:', _fcmToken);
+
+    // Handle foreground messages (app is open and visible)
+    messaging.onMessage((payload) => {
+      console.log('Foreground push received:', payload);
+      const title = payload.notification?.title || 'مطعم صاجي';
+      const body = payload.notification?.body || '';
+      // Show via service worker so it looks consistent
+      swReg.showNotification(title, {
+        body: body,
+        icon: 'asstes/saji_app_logo.png',
+        tag: 'saji-order-fg-' + Date.now(),
+        vibrate: [200, 100, 200],
+      });
+    });
+
+    return _fcmToken;
+  } catch (err) {
+    console.warn('Firebase messaging init failed:', err);
+    return null;
+  }
+}
+
+function getFCMToken() {
+  return _fcmToken;
+}
+
+async function savePushToken(orderId, token) {
+  if (!token) return;
+  return await apiPost({ action: 'savePushToken', orderId: orderId, fcmToken: token });
+}
+
 // ─── Constants ───────────────────────────────────────────────
 const DELIVERY_FEE_AMOUNT = 1000;
 const FREE_DELIVERY_THRESHOLD = 5000;

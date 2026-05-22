@@ -20,11 +20,19 @@
 const SHEET_MENU = 'Menu';
 const SHEET_ORDERS = 'Orders';
 const SHEET_PROMO = 'PromoCodes';
+const SHEET_PUSH = 'PushTokens';
 
 // ══════════════════════════════════════════════════════════════
 // ⬇️  كلمة مرور لوحة التحكم — غيّرها لكلمة مرورك  ⬇️
 // ══════════════════════════════════════════════════════════════
 const ADMIN_PASSWORD = 'mustafa0520';
+// ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+// ⬇️  Firebase Cloud Messaging Server Key  ⬇️
+// (Firebase Console → Project Settings → Cloud Messaging → Server key)
+// ══════════════════════════════════════════════════════════════
+const FCM_SERVER_KEY = 'YOUR_FCM_SERVER_KEY';
 // ══════════════════════════════════════════════════════════════
 
 function getSpreadsheet() {
@@ -84,6 +92,16 @@ function initializeSheets() {
   Logger.log('✅ Sheets initialized! URL: ' + ss.getUrl());
 }
 
+function initializePushSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_PUSH);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_PUSH);
+    sheet.appendRow(['orderId', 'fcmToken', 'timestamp']);
+  }
+  Logger.log('✅ PushTokens sheet ready');
+}
+
 // ─── GET Handler ──────────────────────────────────────────────
 function doGet(e) {
   let result;
@@ -116,6 +134,7 @@ function doPost(e) {
       case 'saveOrder':   result = saveOrderData(data.order); break;
       case 'updateOrder': result = updateOrderStatus(data.orderId, data.status); break;
       case 'declineOrder': result = declineOrderWithNote(data.orderId, data.note); break;
+      case 'savePushToken': result = savePushTokenData(data.orderId, data.fcmToken); break;
       case 'toggleStock': result = toggleItemStock(data.itemId, data.inStock); break;
       case 'setStatus':   result = setRestaurantStatus(data.isOpen); break;
       case 'clearCompleted': result = clearCompletedOrders(); break;
@@ -249,6 +268,15 @@ function updateOrderStatus(orderId, newStatus) {
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === orderId) {
       sheet.getRange(i + 1, 11).setValue(newStatus);
+      // Send push notification
+      var msgs = {
+        cooking: { title: '🔥 بدأ تحضير طلبك!', body: 'الطباخ بدأ بتحضير طلبك الآن' },
+        delivery: { title: '🚗 طلبك في الطريق!', body: 'طلبك في طريقه إليك الآن' },
+        done: { title: '✅ تم توصيل طلبك!', body: 'بالعافية! شكراً لاختيارك مطعم صاجي' },
+      };
+      if (msgs[newStatus]) {
+        sendPushToOrder(orderId, msgs[newStatus].title, msgs[newStatus].body);
+      }
       return { success: true };
     }
   }
@@ -262,6 +290,9 @@ function declineOrderWithNote(orderId, note) {
     if (rows[i][0] === orderId) {
       sheet.getRange(i + 1, 11).setValue('cancelled');
       sheet.getRange(i + 1, 13).setValue(note || '');
+      // Send push notification with cancel reason
+      var body = note ? 'السبب: ' + note : 'تم إلغاء طلبك من قبل المطعم';
+      sendPushToOrder(orderId, '❌ تم إلغاء طلبك', body);
       return { success: true };
     }
   }
@@ -330,4 +361,81 @@ function setRestaurantStatus(isOpen) {
   var props = PropertiesService.getScriptProperties();
   props.setProperty('restaurant_open', isOpen ? 'true' : 'false');
   return { success: true, isOpen: isOpen };
+}
+
+// ─── Push Notification Functions ──────────────────────────────
+function savePushTokenData(orderId, fcmToken) {
+  if (!orderId || !fcmToken) return { error: 'Missing data' };
+  
+  // Create PushTokens sheet if it doesn't exist
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_PUSH);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_PUSH);
+    sheet.appendRow(['orderId', 'fcmToken', 'timestamp']);
+  }
+  
+  // Check if token already exists for this order, update it
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === orderId) {
+      sheet.getRange(i + 1, 2).setValue(fcmToken);
+      sheet.getRange(i + 1, 3).setValue(Date.now());
+      return { success: true };
+    }
+  }
+  
+  // New entry
+  sheet.appendRow([orderId, fcmToken, Date.now()]);
+  return { success: true };
+}
+
+function sendPushToOrder(orderId, title, body) {
+  try {
+    if (FCM_SERVER_KEY === 'YOUR_FCM_SERVER_KEY') return; // Not configured
+    
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_PUSH);
+    if (!sheet) return;
+    
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0] === orderId && rows[i][1]) {
+        sendFCMPush(rows[i][1], title, body);
+        return;
+      }
+    }
+  } catch (err) {
+    Logger.log('Push notification error: ' + err.message);
+  }
+}
+
+function sendFCMPush(fcmToken, title, body) {
+  try {
+    var payload = {
+      to: fcmToken,
+      notification: {
+        title: title,
+        body: body,
+        icon: 'asstes/saji_app_logo.png',
+      },
+      webpush: {
+        notification: {
+          vibrate: [200, 100, 200],
+        },
+      },
+    };
+    
+    UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {
+        'Authorization': 'key=' + FCM_SERVER_KEY,
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+  } catch (err) {
+    Logger.log('FCM send error: ' + err.message);
+  }
 }
