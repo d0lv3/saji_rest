@@ -1054,3 +1054,59 @@ body {
   .stat-value { font-size: 16px; }
   .stat-icon { font-size: 22px; }
 }
+
+/* ─── Decline Order ───────────────────────────────── */
+.order-action-btn.decline {
+  background: transparent;
+  color: var(--danger);
+  border: 1.5px solid var(--danger);
+  flex: 0 0 auto;
+  padding: 10px 14px;
+}
+.order-action-btn.decline:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.decline-form {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--danger-bg);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  border-radius: var(--radius-sm);
+  animation: cardSlideIn 0.25s ease;
+}
+
+.decline-note {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  resize: none;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 8px;
+}
+.decline-note:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+.decline-note::placeholder {
+  color: var(--text-muted);
+}
+
+.order-action-btn.decline-confirm {
+  width: 100%;
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  padding: 10px;
+}
+.order-action-btn.decline-confirm:hover {
+  background: #C0392B;
+}

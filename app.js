@@ -362,9 +362,10 @@
   function updateCartUI() {
     const count = cart.reduce((s, c) => s + c.qty, 0);
     const subtotal = getCartSubtotal();
+    const deliveryFee = getDeliveryFee(subtotal);
     floatingCart.classList.toggle('visible', cart.length > 0);
     $('#floatingCartBadge').textContent = count;
-    $('#floatingCartTotal').textContent = formatPrice(subtotal + DELIVERY_FEE - getDiscount(subtotal));
+    $('#floatingCartTotal').textContent = formatPrice(subtotal + deliveryFee - getDiscount(subtotal));
   }
 
   // ─── Cart Drawer ────────────────────────────────────────────
@@ -418,13 +419,30 @@
     `).join('');
 
     const subtotal = getCartSubtotal();
+    const deliveryFee = getDeliveryFee(subtotal);
     const discount = getDiscount(subtotal);
-    const total = subtotal + DELIVERY_FEE - discount;
+    const total = subtotal + deliveryFee - discount;
     const meetsMin = subtotal >= MIN_ORDER;
 
-    let summaryHtml = `
+    // Delivery status message
+    let deliveryMsgHtml = '';
+    if (subtotal < FREE_DELIVERY_THRESHOLD) {
+      const remaining = FREE_DELIVERY_THRESHOLD - subtotal;
+      deliveryMsgHtml = `<div class="delivery-msg delivery-msg-add">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        أضف بقيمة <strong>${formatPrice(remaining)}</strong> للحصول على توصيل مجاني
+      </div>`;
+    } else {
+      deliveryMsgHtml = `<div class="delivery-msg delivery-msg-free">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        مبروك! حصلت على توصيل مجاني 🎉
+      </div>`;
+    }
+
+    let summaryHtml = deliveryMsgHtml;
+    summaryHtml += `
       <div class="cart-summary-row"><span>المجموع الفرعي</span><span>${formatPrice(subtotal)}</span></div>
-      <div class="cart-summary-row"><span>رسوم التوصيل</span><span>${formatPrice(DELIVERY_FEE)}</span></div>
+      <div class="cart-summary-row"><span>رسوم التوصيل</span><span>${deliveryFee === 0 ? '<span class="free-delivery-label">مجاني</span>' : formatPrice(deliveryFee)}</span></div>
     `;
     if (discount > 0) {
       summaryHtml += `<div class="cart-summary-row"><span class="discount">الخصم (${appliedPromo.code})</span><span class="discount">-${formatPrice(discount)}</span></div>`;
@@ -483,8 +501,9 @@
 
   function renderCheckoutSummary() {
     const subtotal = getCartSubtotal();
+    const deliveryFee = getDeliveryFee(subtotal);
     const discount = getDiscount(subtotal);
-    const total = subtotal + DELIVERY_FEE - discount;
+    const total = subtotal + deliveryFee - discount;
 
     let html = '<h3 style="font-size:15px;font-weight:700;margin-bottom:12px;">ملخص الطلب</h3>';
     cart.forEach(item => {
@@ -493,8 +512,18 @@
         <span>${formatPrice(item.unitPrice * item.qty)}</span>
       </div>`;
     });
+    html += `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:var(--text-muted);">
+      <span>رسوم التوصيل</span>
+      <span>${deliveryFee === 0 ? '<span style="color:var(--success);font-weight:600;">مجاني</span>' : formatPrice(deliveryFee)}</span>
+    </div>`;
+    if (discount > 0) {
+      html += `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:var(--success);">
+        <span>الخصم (${appliedPromo.code})</span>
+        <span>-${formatPrice(discount)}</span>
+      </div>`;
+    }
     html += `<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700;">
-      <span>الإجمالي (مع التوصيل)</span>
+      <span>الإجمالي</span>
       <span style="color:var(--primary)">${formatPrice(total)}</span>
     </div>`;
     $('#checkoutSummary').innerHTML = html;
@@ -542,8 +571,9 @@
     submitBtn.textContent = '...جاري الإرسال';
 
     const subtotal = getCartSubtotal();
+    const deliveryFee = getDeliveryFee(subtotal);
     const discount = getDiscount(subtotal);
-    const total = subtotal + DELIVERY_FEE - discount;
+    const total = subtotal + deliveryFee - discount;
 
     const order = {
       id: generateOrderId(),
@@ -551,7 +581,7 @@
         name: c.name, qty: c.qty, unitPrice: c.unitPrice,
         addons: c.addonNames, notes: c.notes,
       })),
-      subtotal, deliveryFee: DELIVERY_FEE, discount,
+      subtotal, deliveryFee: deliveryFee, discount,
       promoCode: appliedPromo ? appliedPromo.code : null,
       total, phone, address,
       name: name,
@@ -593,6 +623,13 @@
   const STATUS_ORDER = ['pending', 'cooking', 'delivery'];
 
   function updateTrackingTimeline(currentStatus) {
+    if (currentStatus === 'cancelled') {
+      // Hide normal timeline, show cancellation UI
+      $$('.timeline-step').forEach(step => {
+        step.classList.remove('active', 'completed');
+      });
+      return;
+    }
     const currentIdx = STATUS_ORDER.indexOf(currentStatus);
     $$('.timeline-step').forEach((step, i) => {
       step.classList.remove('active', 'completed');
@@ -606,12 +643,14 @@
     if (trackingInterval) clearInterval(trackingInterval);
     trackingInterval = setInterval(async () => {
       if (!currentOrderId) return;
-      const status = await getOrderStatus(currentOrderId);
-      if (!status || status === 'not_found') {
+      const result = await getOrderStatusFull(currentOrderId);
+      if (!result || result.status === 'not_found') {
         // Order done or removed
         clearTrackingState();
         return;
       }
+
+      const status = result.status;
 
       // Update floating card status
       updateFloatingOrderStatus(status);
@@ -619,6 +658,15 @@
       // Update tracking timeline if on tracking screen
       if ($('#trackingScreen').classList.contains('active')) {
         updateTrackingTimeline(status);
+      }
+
+      // Handle cancelled order
+      if (status === 'cancelled') {
+        const note = result.cancelNote || '';
+        showOrderCancelled(note);
+        notifyStatusChange('cancelled', note);
+        clearTrackingStateKeepScreen();
+        return;
       }
 
       // Notify user if status changed
@@ -650,6 +698,18 @@
     floatingCart.style.display = cart.length > 0 ? 'flex' : 'none';
   }
 
+  // Same as clearTrackingState but doesn't switch to done screen — used for cancellation
+  function clearTrackingStateKeepScreen() {
+    clearInterval(trackingInterval);
+    trackingInterval = null;
+    currentOrderId = null;
+    hasActiveOrder = false;
+    lastTrackedStatus = null;
+    localStorage.removeItem('saji_active_order');
+    updateFloatingOrderCard();
+    floatingCart.style.display = cart.length > 0 ? 'flex' : 'none';
+  }
+
   function showOrderCompleted() {
     // Mark all steps as completed
     $$('.timeline-step').forEach(step => {
@@ -659,11 +719,29 @@
     // Show completion message and new order button
     $('#orderDoneMsg').style.display = 'block';
     $('#newOrderBtn').style.display = 'block';
+    // Hide cancel message if any
+    $('#orderCancelledMsg').style.display = 'none';
+  }
+
+  function showOrderCancelled(note) {
+    // Hide normal done message
+    $('#orderDoneMsg').style.display = 'none';
+    // Show cancel message
+    const cancelMsg = $('#orderCancelledMsg');
+    cancelMsg.style.display = 'block';
+    const cancelNote = $('#cancelNote');
+    cancelNote.textContent = note || '';
+    cancelNote.style.display = note ? 'block' : 'none';
+    // Show new order button
+    $('#newOrderBtn').style.display = 'block';
+    // Update timeline to show cancelled
+    updateTrackingTimeline('cancelled');
   }
 
   function hideOrderCompleted() {
     $('#orderDoneMsg').style.display = 'none';
     $('#newOrderBtn').style.display = 'none';
+    $('#orderCancelledMsg').style.display = 'none';
   }
 
   // ─── Stock Sync Poll ───────────────────────────────────────
@@ -678,6 +756,7 @@
     cooking: '🔥 جاري التحضير',
     delivery: '🚗 في الطريق',
     done: '✅ تم التسليم',
+    cancelled: '❌ تم الإلغاء',
   };
 
   function updateFloatingOrderCard() {
@@ -724,11 +803,12 @@
     }
   }
 
-  function notifyStatusChange(newStatus) {
+  function notifyStatusChange(newStatus, cancelNote) {
     const msgs = {
       cooking: { title: '🔥 بدأ تحضير طلبك!', body: 'الطباخ بدأ بتحضير طلبك الآن' },
       delivery: { title: '🚗 طلبك في الطريق!', body: 'طلبك في طريقه إليك الآن' },
       done: { title: '✅ تم توصيل طلبك!', body: 'بالعافية! شكراً لاختيارك مطعم صاجي' },
+      cancelled: { title: '❌ تم إلغاء طلبك', body: cancelNote ? 'السبب: ' + cancelNote : 'تم إلغاء طلبك من قبل المطعم' },
     };
     if (msgs[newStatus]) {
       sendUserNotification(msgs[newStatus].title, msgs[newStatus].body);
@@ -758,10 +838,18 @@
     if (currentOrderId) {
       hasActiveOrder = true;
       // Stay on menu with floating card, fetch status
-      getOrderStatus(currentOrderId).then(status => {
-        if (status && status !== 'not_found') {
-          lastTrackedStatus = status;
-          updateFloatingOrderStatus(status);
+      getOrderStatusFull(currentOrderId).then(result => {
+        if (result && result.status !== 'not_found') {
+          if (result.status === 'cancelled') {
+            // Order was cancelled while user was away
+            showScreen('#trackingScreen');
+            $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
+            showOrderCancelled(result.cancelNote || '');
+            clearTrackingStateKeepScreen();
+            return;
+          }
+          lastTrackedStatus = result.status;
+          updateFloatingOrderStatus(result.status);
           updateFloatingOrderCard();
         } else {
           clearTrackingState();
