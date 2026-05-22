@@ -23,9 +23,16 @@ const SHEET_PROMO = 'PromoCodes';
 const SHEET_PUSH = 'PushTokens';
 
 // ══════════════════════════════════════════════════════════════
-// ⬇️  كلمة مرور لوحة التحكم — غيّرها لكلمة مرورك  ⬇️
+// Admin password is stored securely in Script Properties.
+// To set it, run setAdminPassword('your_password') once from the editor.
 // ══════════════════════════════════════════════════════════════
-const ADMIN_PASSWORD = 'mustafa0520';
+function getAdminPassword() {
+  return PropertiesService.getScriptProperties().getProperty('admin_password') || '';
+}
+function setAdminPassword(pw) {
+  PropertiesService.getScriptProperties().setProperty('admin_password', pw);
+  Logger.log('✅ Admin password set successfully');
+}
 // ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
@@ -350,7 +357,7 @@ function validatePromoCode(code) {
 
 // ─── Admin Login ──────────────────────────────────────────────
 function validateAdminLogin(password) {
-  if (password === ADMIN_PASSWORD) {
+  if (password === getAdminPassword()) {
     return { success: true, token: Utilities.getUuid() };
   }
   return { success: false };
