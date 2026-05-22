@@ -258,6 +258,13 @@ function saveOrderData(order) {
     order.discount, order.promoCode || '', order.total, order.phone,
     order.address, order.name || '', order.status, order.timestamp,
   ]);
+  
+  // Notify admin of new order
+  sendPushToAdmin(
+    '📥 طلب جديد!',
+    'طلب #' + order.id + ' — ' + order.name + ' — ' + order.total + ' د.ع'
+  );
+  
   return { success: true, orderId: order.id };
 }
 
@@ -406,6 +413,25 @@ function sendPushToOrder(orderId, title, body) {
     }
   } catch (err) {
     Logger.log('Push notification error: ' + err.message);
+  }
+}
+
+function sendPushToAdmin(title, body) {
+  try {
+    if (!FCM_PROJECT_ID || FCM_PROJECT_ID === 'YOUR_PROJECT_ID') return;
+    
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_PUSH);
+    if (!sheet) return;
+    
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0] === 'ADMIN' && rows[i][1]) {
+        sendFCMPush(rows[i][1], title, body);
+      }
+    }
+  } catch (err) {
+    Logger.log('Admin push error: ' + err.message);
   }
 }
 

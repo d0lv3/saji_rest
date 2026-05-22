@@ -360,8 +360,6 @@
 
   // ─── Init ───────────────────────────────────────────────────
   async function startDashboard() {
-    requestNotificationPermission();
-
     // Load orders + menu + status all in parallel
     const [ordersResult] = await Promise.allSettled([
       getOrders(),
@@ -375,6 +373,13 @@
     await renderOrders();
     setupStatusToggle();
     startPolling();
+
+    // Initialize Firebase push for admin new-order alerts
+    initFirebaseMessaging().then(token => {
+      if (token) {
+        savePushToken('ADMIN', token).catch(() => {});
+      }
+    }).catch(() => {});
   }
 
   // ─── Restaurant Status ──────────────────────────────────────
