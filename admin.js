@@ -301,6 +301,9 @@
     subscribeToOrders(function () {
       renderOrders();
     });
+    subscribeToMenu(function () {
+      renderMenuTable();
+    });
   }
 
   // ─── Login ──────────────────────────────────────────────────
