@@ -107,6 +107,7 @@
         btn.disabled = true;
         btn.textContent = '...جاري التحديث';
         await updateOrder(btn.dataset.orderId, btn.dataset.action);
+        sendPushNotification(btn.dataset.orderId, btn.dataset.action);
         _lastOrdersHash = '';
         await renderOrders();
       });
@@ -136,6 +137,7 @@
         btn.disabled = true;
         btn.textContent = '...جاري الإلغاء';
         await declineOrder(orderId, note);
+        sendPushNotification(orderId, 'cancelled');
         _lastOrdersHash = '';
         await renderOrders();
       });

@@ -595,6 +595,8 @@
       savePushToken(order.id, fcmToken).catch(() => {});
     }
 
+    sendPushNotification(order.id, 'new_order');
+
     showScreen('#trackingScreen');
     $('#trackingOrderId').textContent = `رقم الطلب: ${order.id}`;
     hideOrderCompleted();

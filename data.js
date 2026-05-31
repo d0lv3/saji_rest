@@ -570,6 +570,18 @@ function subscribeToMenu(callback) {
     .subscribe();
 }
 
+// ─── Push Notification (Edge Function) ──────────────────────
+
+async function sendPushNotification(orderId, status) {
+  try {
+    await _supabase.functions.invoke('send-notification', {
+      body: { orderId: orderId, status: status },
+    });
+  } catch (err) {
+    console.warn('Push notification failed:', err);
+  }
+}
+
 // ─── Utility Functions ───────────────────────────────────────
 
 function formatPrice(amount) {
