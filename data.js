@@ -8,7 +8,7 @@
 // ⬇️  PASTE YOUR SUPABASE CONFIG HERE  ⬇️
 // ══════════════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://ykqcqyycvpxnhroxdgmc.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_PiYA1cP2vZ0kLDrfv8M-oQ_oHcx4shL';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcWNxeXljdnB4bmhyb3hkZ21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMzQ4NzIsImV4cCI6MjA5NTgxMDg3Mn0.eo96egK7kkyjqIkknEXln7opbqmEmO9rRLAENI7Y-w4';
 const ADMIN_EMAIL = 'admin@saji.restaurant';
 // ══════════════════════════════════════════════════════════════
 
