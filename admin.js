@@ -1,6 +1,6 @@
 /* ============================================================
    admin.js — Admin Dashboard Logic for مطعم صاجي
-   Uses async API calls to Google Apps Script
+   Uses Supabase for auth, data, and real-time updates
    ============================================================ */
 
 (function () {
@@ -37,10 +37,6 @@
     });
   });
 
-  // ─── Browser Notifications ─────────────────────────────────
-  // Push notifications are now handled by Firebase Cloud Messaging (server-side).
-  // Admin receives push via FCM when new orders arrive.
-
   // ─── Audio Alert (Web Audio API) ────────────────────────────
   function playNotificationSound() {
     try {
@@ -62,15 +58,21 @@
     }
   }
 
+  // ─── Browser Notification ──────────────────────────────────
+  function sendBrowserNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body: body, icon: 'asstes/saji_app_logo.png' });
+    }
+  }
+
   // ─── Render Orders ──────────────────────────────────────────
   let _lastOrdersHash = '';
 
   async function renderOrders() {
     const orders = await getOrders();
 
-    // Quick hash to check if data actually changed
     const hash = JSON.stringify(orders.map(o => o.id + ':' + o.status));
-    if (hash === _lastOrdersHash) return; // No change — skip DOM work
+    if (hash === _lastOrdersHash) return;
     _lastOrdersHash = hash;
 
     const pending = orders.filter(o => o.status === 'pending');
@@ -90,7 +92,6 @@
     $('#cookingOrders').innerHTML = cooking.length ? cooking.map(o => renderOrderCard(o, 'cooking')).join('') : emptyMsg;
     $('#deliveryOrders').innerHTML = delivery.length ? delivery.map(o => renderOrderCard(o, 'delivery')).join('') : emptyMsg;
 
-    // Check for new orders & play sound + send notification
     if (orders.length > lastOrderCount && lastOrderCount > 0) {
       const newCount = orders.length - lastOrderCount;
       playNotificationSound();
@@ -101,18 +102,16 @@
     }
     lastOrderCount = orders.length;
 
-    // Attach action buttons
     document.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', async () => {
         btn.disabled = true;
         btn.textContent = '...جاري التحديث';
         await updateOrder(btn.dataset.orderId, btn.dataset.action);
-        _lastOrdersHash = ''; // Force re-render after status change
+        _lastOrdersHash = '';
         await renderOrders();
       });
     });
 
-    // Attach decline buttons
     document.querySelectorAll('.decline-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const orderId = btn.dataset.orderId;
@@ -170,7 +169,6 @@
     }
     actionsHtml += '</div>';
 
-    // Decline form (hidden by default)
     actionsHtml += `
       <div class="decline-form" id="decline-form-${order.id}" style="display:none;">
         <textarea id="decline-note-${order.id}" class="decline-note" placeholder="سبب رفض الطلب..." rows="2"></textarea>
@@ -203,12 +201,10 @@
   async function renderCompletedOrders() {
     const orders = await getCompletedOrders();
 
-    // Calculate stats
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
     const avgOrder = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
-    // Most sold item
     const itemFreq = {};
     orders.forEach(o => {
       o.items.forEach(item => {
@@ -221,13 +217,11 @@
       if (count > topCount) { topItem = name; topCount = count; }
     });
 
-    // Update stat cards
     $('#statTotalOrders').textContent = totalOrders;
     $('#statTotalRevenue').textContent = formatPrice(totalRevenue);
     $('#statTopItem').textContent = topItem;
     $('#statAvgOrder').textContent = formatPrice(avgOrder);
 
-    // Render completed orders list
     const list = $('#completedOrdersList');
     if (orders.length === 0) {
       list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px 0;">لا توجد طلبات مكتملة بعد</p>';
@@ -260,7 +254,7 @@
     const btn = $('#resetCompletedBtn');
     btn.disabled = true;
     btn.textContent = '...جاري المسح';
-    await apiPost({ action: 'clearCompleted' });
+    await clearCompletedOrders();
     btn.disabled = false;
     btn.textContent = '🗑️ مسح الكل';
     await renderCompletedOrders();
@@ -292,9 +286,11 @@
     });
   }
 
-  // ─── Polling ────────────────────────────────────────────────
-  function startPolling() {
-    setInterval(() => { renderOrders(); }, 3000);
+  // ─── Realtime Subscriptions ─────────────────────────────────
+  function startRealtimeUpdates() {
+    subscribeToOrders(function () {
+      renderOrders();
+    });
   }
 
   // ─── Login ──────────────────────────────────────────────────
@@ -305,7 +301,6 @@
   const passInput = $('#adminPassword');
   const togglePass = $('#togglePass');
 
-  // Toggle password visibility
   togglePass.addEventListener('click', () => {
     const isPass = passInput.type === 'password';
     passInput.type = isPass ? 'text' : 'password';
@@ -313,12 +308,6 @@
     togglePass.querySelector('.eye-closed').style.display = isPass ? 'block' : 'none';
   });
 
-  // Check if already logged in
-  function isLoggedIn() {
-    return sessionStorage.getItem('admin_token');
-  }
-
-  // Login handler
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const pass = passInput.value.trim();
@@ -329,10 +318,9 @@
     loginError.textContent = '';
     passInput.classList.remove('error');
 
-    const result = await apiGet('adminLogin', { pass: pass });
+    const result = await adminLogin(pass);
 
     if (result && result.success) {
-      sessionStorage.setItem('admin_token', result.token);
       loginOverlay.classList.add('hidden');
       startDashboard();
     } else {
@@ -345,7 +333,6 @@
 
   // ─── Init ───────────────────────────────────────────────────
   async function startDashboard() {
-    // Load orders + menu + status all in parallel
     const [ordersResult] = await Promise.allSettled([
       getOrders(),
       renderMenuTable(),
@@ -357,9 +344,8 @@
     }
     await renderOrders();
     setupStatusToggle();
-    startPolling();
+    startRealtimeUpdates();
 
-    // Initialize Firebase push for admin new-order alerts
     initFirebaseMessaging().then(token => {
       if (token) {
         savePushToken('ADMIN', token).catch(() => {});
@@ -369,7 +355,7 @@
 
   // ─── Restaurant Status ──────────────────────────────────────
   async function loadRestaurantStatus() {
-    const result = await apiGet('getStatus');
+    const result = await getRestaurantStatus();
     if (result && result.success) {
       const sw = $('#statusSwitch');
       sw.checked = result.isOpen;
@@ -387,15 +373,17 @@
     $('#statusSwitch').addEventListener('change', async (e) => {
       const isOpen = e.target.checked;
       updateStatusLabel(isOpen);
-      await apiPost({ action: 'setStatus', isOpen: isOpen });
+      await setRestaurantStatus(isOpen);
     });
   }
 
   // Check session on load
-  if (isLoggedIn()) {
-    loginOverlay.classList.add('hidden');
-    startDashboard();
-  } else {
-    passInput.focus();
-  }
+  isAdminLoggedIn().then(loggedIn => {
+    if (loggedIn) {
+      loginOverlay.classList.add('hidden');
+      startDashboard();
+    } else {
+      passInput.focus();
+    }
+  });
 })();
