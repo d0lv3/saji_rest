@@ -286,6 +286,16 @@
     });
   }
 
+  // ─── Refresh Button ──────────────────────────────────────────
+  $('#refreshBtn').addEventListener('click', async () => {
+    const btn = $('#refreshBtn');
+    btn.classList.add('spinning');
+    _lastOrdersHash = '';
+    await renderOrders();
+    await renderMenuTable();
+    setTimeout(() => btn.classList.remove('spinning'), 600);
+  });
+
   // ─── Realtime Subscriptions ─────────────────────────────────
   function startRealtimeUpdates() {
     subscribeToOrders(function () {
