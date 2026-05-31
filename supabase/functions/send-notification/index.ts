@@ -139,8 +139,18 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  let body: { orderId: string; status: string };
   try {
-    const { orderId, status } = await req.json();
+    body = await req.json();
+  } catch (err) {
+    return Response.json(
+      { error: "Invalid request body", detail: (err as Error).message },
+      { status: 400, headers: corsHeaders }
+    );
+  }
+
+  try {
+    const { orderId, status } = body;
 
     const notif = STATUS_NOTIFICATIONS[status];
     if (!notif) {
@@ -154,9 +164,9 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const sb = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: tokens } = await supabase
+    const { data: tokens } = await sb
       .from("push_tokens")
       .select("fcm_token")
       .eq("order_id", targetOrderId);
@@ -168,14 +178,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const firebaseConfig = getFirebaseConfig();
+    let firebaseConfig: Record<string, string>;
+    try {
+      firebaseConfig = getFirebaseConfig();
+    } catch (err) {
+      return Response.json(
+        { error: "Firebase config parse failed", detail: (err as Error).message },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
     const accessToken = await getAccessToken(firebaseConfig);
     const title = notif.title;
-    const body = notif.body(orderId);
+    const notifBody = notif.body(orderId);
 
     const results = await Promise.allSettled(
       tokens.map((t: { fcm_token: string }) =>
-        sendFCM(t.fcm_token, title, body, accessToken, firebaseConfig.project_id)
+        sendFCM(t.fcm_token, title, notifBody, accessToken, firebaseConfig.project_id)
       )
     );
 

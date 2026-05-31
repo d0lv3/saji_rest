@@ -123,6 +123,101 @@
     });
   }
 
+  // ─── Render Offers ──────────────────────────────────────────
+  let activeOffers = [];
+
+  async function loadAndRenderOffers() {
+    const offers = await getActiveOffers();
+    activeOffers = offers;
+    renderOffers();
+  }
+
+  function renderOffers() {
+    const container = document.getElementById('offersContainer');
+    if (!container) return;
+    if (activeOffers.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = activeOffers.map(offer => {
+      const items = offer.itemIds.map(id => {
+        const item = menuData.find(m => m.id === id);
+        return item ? item : null;
+      }).filter(Boolean);
+
+      const originalPrice = items.reduce((sum, item) => sum + item.price, 0);
+      const savings = originalPrice - offer.price;
+      const expiresAt = new Date(offer.expiresAt);
+      const timeLeft = expiresAt - Date.now();
+
+      let timeStr = '';
+      if (timeLeft < 3600000) {
+        timeStr = Math.ceil(timeLeft / 60000) + ' دقيقة';
+      } else if (timeLeft < 86400000) {
+        timeStr = Math.ceil(timeLeft / 3600000) + ' ساعة';
+      } else {
+        timeStr = Math.ceil(timeLeft / 86400000) + ' يوم';
+      }
+
+      return `
+        <div class="offer-banner" data-offer-id="${offer.id}">
+          <div class="offer-banner-header">
+            <div class="offer-banner-badge">عرض خاص</div>
+            <div class="offer-banner-timer">متبقي ${timeStr}</div>
+          </div>
+          <h3 class="offer-banner-title">${escapeHtml(offer.title)}</h3>
+          <div class="offer-banner-items">
+            ${items.map(item => `
+              <div class="offer-banner-item">
+                ${item.image ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="offer-banner-item-img">` : `<span class="offer-banner-item-icon">${CATEGORY_ICONS[item.category] || '🍽️'}</span>`}
+                <span class="offer-banner-item-name">${escapeHtml(item.name)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="offer-banner-footer">
+            <div class="offer-banner-prices">
+              ${savings > 0 ? `<span class="offer-banner-original">${formatPrice(originalPrice)}</span>` : ''}
+              <span class="offer-banner-price">${formatPrice(offer.price)}</span>
+            </div>
+            <button class="offer-add-btn" data-offer-id="${offer.id}">أضف للسلة</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.offer-add-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (hasActiveOrder) return;
+        const offer = activeOffers.find(o => o.id === parseInt(btn.dataset.offerId));
+        if (!offer) return;
+        addOfferToCart(offer);
+      });
+    });
+  }
+
+  function addOfferToCart(offer) {
+    const items = offer.itemIds.map(id => menuData.find(m => m.id === id)).filter(Boolean);
+    const itemNames = items.map(i => i.name).join(' + ');
+
+    cart.push({
+      cartId: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+      itemId: 'offer-' + offer.id,
+      name: offer.title,
+      basePrice: offer.price,
+      addons: [],
+      addonNames: [],
+      notes: itemNames,
+      qty: 1,
+      unitPrice: offer.price,
+      isOffer: true,
+    });
+
+    updateCartUI();
+    showAddedFeedback();
+  }
+
   async function loadAndRenderMenu() {
     if (_menuCache && _menuCache.length && menuData.length === 0) {
       menuData = _menuCache;
@@ -148,6 +243,8 @@
         document.getElementById('closedOverlay').style.display = 'flex';
       }
     }
+
+    await loadAndRenderOffers();
 
     const loader = document.getElementById('loadingScreen');
     if (loader) loader.classList.add('hidden');
@@ -390,11 +487,12 @@
     }
 
     cartBody.innerHTML = cart.map(item => `
-      <div class="cart-item">
+      <div class="cart-item ${item.isOffer ? 'cart-item-offer' : ''}">
         <div class="cart-item-info">
-          <h4>${escapeHtml(item.name)}</h4>
-          ${item.addonNames.length ? `<div class="cart-item-addons">+ ${item.addonNames.map(a => escapeHtml(a)).join('، ')}</div>` : ''}
-          ${item.notes ? `<div class="cart-item-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
+          <h4>${item.isOffer ? '🏷️ ' : ''}${escapeHtml(item.name)}</h4>
+          ${item.addonNames && item.addonNames.length ? `<div class="cart-item-addons">+ ${item.addonNames.map(a => escapeHtml(a)).join('، ')}</div>` : ''}
+          ${item.isOffer && item.notes ? `<div class="cart-item-offer-items">${escapeHtml(item.notes)}</div>` : ''}
+          ${!item.isOffer && item.notes ? `<div class="cart-item-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
           <div class="cart-item-qty">
             <button onclick="window._cartQty('${escapeHtml(item.cartId)}', -1)">−</button>
             <span>${item.qty}</span>
@@ -713,6 +811,9 @@
         menuData = freshMenu;
         renderMenuFromCache();
       }
+    });
+    subscribeToOffers(function () {
+      loadAndRenderOffers();
     });
   }
 

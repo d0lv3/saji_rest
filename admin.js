@@ -33,7 +33,9 @@
       $('#ordersSection').classList.toggle('active', target === 'orders');
       $('#completedSection').classList.toggle('active', target === 'completed');
       $('#menuSection').classList.toggle('active', target === 'menu');
+      $('#offersSection').classList.toggle('active', target === 'offers');
       if (target === 'completed') renderCompletedOrders();
+      if (target === 'offers') { renderOfferItemsGrid(); renderOffersList(); }
     });
   });
 
@@ -391,6 +393,179 @@
       const isOpen = e.target.checked;
       updateStatusLabel(isOpen);
       await setRestaurantStatus(isOpen);
+    });
+  }
+
+  // ─── Offers Management ──────────────────────────────────────
+  let selectedOfferItems = [];
+
+  function renderOfferItemsGrid() {
+    const grid = $('#offerItemsGrid');
+    if (!grid) return;
+    const menu = menuCache.length ? menuCache : _menuCache;
+    grid.innerHTML = menu.map(item => `
+      <label class="offer-item-check ${selectedOfferItems.includes(item.id) ? 'checked' : ''}" data-item-id="${item.id}">
+        <input type="checkbox" ${selectedOfferItems.includes(item.id) ? 'checked' : ''} value="${item.id}">
+        <span class="offer-item-name">${escapeHtml(item.name)}</span>
+        <span class="offer-item-price">${formatPrice(item.price)}</span>
+      </label>
+    `).join('');
+
+    grid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          selectedOfferItems.push(cb.value);
+        } else {
+          selectedOfferItems = selectedOfferItems.filter(id => id !== cb.value);
+        }
+        cb.closest('.offer-item-check').classList.toggle('checked', cb.checked);
+        updateOfferPreview();
+      });
+    });
+  }
+
+  function updateOfferPreview() {
+    const menu = menuCache.length ? menuCache : _menuCache;
+    const summary = $('#offerPreviewSummary');
+    const priceInput = $('#offerPrice');
+    if (selectedOfferItems.length === 0) {
+      summary.style.display = 'none';
+      return;
+    }
+    const originalPrice = selectedOfferItems.reduce((sum, id) => {
+      const item = menu.find(m => m.id === id);
+      return sum + (item ? item.price : 0);
+    }, 0);
+    const offerPrice = parseInt(priceInput.value) || 0;
+    const savings = originalPrice - offerPrice;
+
+    $('#offerOriginalPrice').textContent = formatPrice(originalPrice);
+    $('#offerSavings').textContent = savings > 0 ? formatPrice(savings) : '—';
+    $('#offerSavings').style.color = savings > 0 ? 'var(--success)' : 'var(--text-muted)';
+    summary.style.display = 'flex';
+  }
+
+  if ($('#offerPrice')) {
+    $('#offerPrice').addEventListener('input', updateOfferPreview);
+  }
+
+  if ($('#offerForm')) {
+    $('#offerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (selectedOfferItems.length === 0) {
+        alert('يرجى اختيار صنف واحد على الأقل');
+        return;
+      }
+      const title = $('#offerTitle').value.trim();
+      const price = parseInt($('#offerPrice').value);
+      const durationVal = parseInt($('#offerDurationValue').value);
+      const durationUnit = $('#offerDurationUnit').value;
+
+      if (!title || !price || !durationVal) return;
+
+      let ms = durationVal * 3600000;
+      if (durationUnit === 'days') ms = durationVal * 86400000;
+      if (durationUnit === 'weeks') ms = durationVal * 604800000;
+      const expiresAt = new Date(Date.now() + ms).toISOString();
+
+      const btn = $('#offerSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = '...جاري الإنشاء';
+
+      const result = await createOffer(title, price, selectedOfferItems, expiresAt);
+
+      btn.disabled = false;
+      btn.textContent = 'إنشاء العرض';
+
+      if (result.success) {
+        $('#offerForm').reset();
+        selectedOfferItems = [];
+        renderOfferItemsGrid();
+        updateOfferPreview();
+        await renderOffersList();
+      } else {
+        alert('حدث خطأ أثناء إنشاء العرض');
+      }
+    });
+  }
+
+  async function renderOffersList() {
+    const list = $('#offersListAdmin');
+    if (!list) return;
+    const offers = await getAllOffers();
+    const menu = menuCache.length ? menuCache : _menuCache;
+
+    if (offers.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px 0;">لا توجد عروض حالياً</p>';
+      return;
+    }
+
+    list.innerHTML = offers.map(offer => {
+      const expired = new Date(offer.expiresAt) < new Date();
+      const itemNames = offer.itemIds.map(id => {
+        const item = menu.find(m => m.id === id);
+        return item ? item.name : id;
+      });
+      const originalPrice = offer.itemIds.reduce((sum, id) => {
+        const item = menu.find(m => m.id === id);
+        return sum + (item ? item.price : 0);
+      }, 0);
+
+      const expiryDate = new Date(offer.expiresAt);
+      const timeLeft = expiryDate - Date.now();
+      let timeLeftStr = '';
+      if (expired) {
+        timeLeftStr = 'منتهي';
+      } else if (timeLeft < 3600000) {
+        timeLeftStr = Math.ceil(timeLeft / 60000) + ' دقيقة';
+      } else if (timeLeft < 86400000) {
+        timeLeftStr = Math.ceil(timeLeft / 3600000) + ' ساعة';
+      } else {
+        timeLeftStr = Math.ceil(timeLeft / 86400000) + ' يوم';
+      }
+
+      return `
+        <div class="offer-admin-card ${expired ? 'expired' : ''} ${!offer.isActive ? 'inactive' : ''}">
+          <div class="offer-admin-header">
+            <div>
+              <strong class="offer-admin-title">${escapeHtml(offer.title)}</strong>
+              <span class="offer-admin-badge ${expired ? 'badge-expired' : offer.isActive ? 'badge-active' : 'badge-inactive'}">
+                ${expired ? 'منتهي' : offer.isActive ? 'فعّال' : 'متوقف'}
+              </span>
+            </div>
+            <div class="offer-admin-price">${formatPrice(offer.price)}</div>
+          </div>
+          <div class="offer-admin-items">${itemNames.map(n => '<span class="offer-admin-item-tag">' + escapeHtml(n) + '</span>').join('')}</div>
+          <div class="offer-admin-meta">
+            <span>${expired ? 'انتهى' : 'ينتهي خلال'}: ${timeLeftStr}</span>
+            ${originalPrice > offer.price ? '<span class="offer-admin-savings">توفير ' + formatPrice(originalPrice - offer.price) + '</span>' : ''}
+          </div>
+          <div class="offer-admin-actions">
+            ${!expired ? `<button class="offer-toggle-btn" data-offer-id="${offer.id}" data-active="${offer.isActive ? '1' : '0'}">
+              ${offer.isActive ? '⏸ إيقاف' : '▶ تفعيل'}
+            </button>` : ''}
+            <button class="offer-delete-btn" data-offer-id="${offer.id}">🗑 حذف</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    list.querySelectorAll('.offer-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const isActive = btn.dataset.active === '1';
+        btn.disabled = true;
+        await toggleOfferActive(parseInt(btn.dataset.offerId), !isActive);
+        await renderOffersList();
+      });
+    });
+
+    list.querySelectorAll('.offer-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('هل أنت متأكد من حذف هذا العرض؟')) return;
+        btn.disabled = true;
+        await deleteOffer(parseInt(btn.dataset.offerId));
+        await renderOffersList();
+      });
     });
   }
 

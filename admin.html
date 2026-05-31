@@ -81,6 +81,7 @@
   <button class="admin-tab active" data-tab="orders" id="tabOrders">📋 الطلبات</button>
   <button class="admin-tab" data-tab="completed" id="tabCompleted">📊 الطلبات المكتملة</button>
   <button class="admin-tab" data-tab="menu" id="tabMenu">🍽️ إدارة القائمة</button>
+  <button class="admin-tab" data-tab="offers" id="tabOffers">🏷️ العروض</button>
 </nav>
 
 <!-- Content -->
@@ -146,6 +147,52 @@
       </div>
       <div id="menuTableBody"></div>
     </div>
+  </div>
+
+  <!-- ═══ OFFERS TAB ═══ -->
+  <div class="offers-section-admin" id="offersSection">
+    <div class="offer-create-card">
+      <h3>إنشاء عرض جديد</h3>
+      <form id="offerForm" autocomplete="off">
+        <div class="offer-form-row">
+          <div class="offer-form-group">
+            <label for="offerTitle">اسم العرض</label>
+            <input type="text" id="offerTitle" placeholder="مثال: وجبة العائلة" required>
+          </div>
+          <div class="offer-form-group">
+            <label for="offerPrice">سعر العرض (د.ع)</label>
+            <input type="number" id="offerPrice" placeholder="5000" min="1" required>
+          </div>
+        </div>
+        <div class="offer-form-group">
+          <label for="offerDuration">مدة العرض</label>
+          <div class="offer-duration-row">
+            <input type="number" id="offerDurationValue" placeholder="1" min="1" value="1" required>
+            <select id="offerDurationUnit">
+              <option value="hours">ساعات</option>
+              <option value="days" selected>أيام</option>
+              <option value="weeks">أسابيع</option>
+            </select>
+          </div>
+        </div>
+        <div class="offer-form-group">
+          <label>اختر الأصناف</label>
+          <div class="offer-items-grid" id="offerItemsGrid"></div>
+        </div>
+        <div class="offer-form-group">
+          <div class="offer-preview-summary" id="offerPreviewSummary" style="display:none;">
+            <span class="offer-preview-label">السعر الأصلي:</span>
+            <span class="offer-preview-original" id="offerOriginalPrice"></span>
+            <span class="offer-preview-label">التوفير:</span>
+            <span class="offer-preview-savings" id="offerSavings"></span>
+          </div>
+        </div>
+        <button type="submit" class="offer-submit-btn" id="offerSubmitBtn">إنشاء العرض</button>
+      </form>
+    </div>
+
+    <h3 class="offers-list-title">العروض الحالية</h3>
+    <div id="offersListAdmin" class="offers-list-admin"></div>
   </div>
 
 </div>
