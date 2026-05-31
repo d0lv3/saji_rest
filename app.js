@@ -705,8 +705,12 @@
 
   // ─── Menu Realtime Sync ───────────────────────────────────
   function startMenuRealtime() {
-    subscribeToMenu(function () {
-      loadAndRenderMenu();
+    subscribeToMenu(async function () {
+      const freshMenu = await fetchMenuFresh();
+      if (freshMenu && freshMenu.length) {
+        menuData = freshMenu;
+        renderMenuFromCache();
+      }
     });
   }
 

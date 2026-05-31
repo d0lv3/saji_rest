@@ -241,7 +241,39 @@ async function toggleStock(itemId, inStock) {
     .from('menu_items')
     .update({ in_stock: inStock })
     .eq('id', itemId);
+
+  if (!error) {
+    _menuCache = _menuCache.map(function (item) {
+      if (item.id === itemId) return Object.assign({}, item, { inStock: inStock });
+      return item;
+    });
+    saveMenuToStorage(_menuCache);
+  }
   return { success: !error };
+}
+
+function invalidateMenuCache() {
+  localStorage.removeItem(MENU_STORAGE_KEY);
+}
+
+async function fetchMenuFresh() {
+  invalidateMenuCache();
+  try {
+    const { data, error } = await _supabase
+      .from('menu_items')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      const menu = data.map(transformMenuItem);
+      _menuCache = menu;
+      saveMenuToStorage(menu);
+      return menu;
+    }
+  } catch (err) {
+    console.warn('fetchMenuFresh failed:', err);
+  }
+  return _menuCache;
 }
 
 // ─── Orders Functions ────────────────────────────────────────
