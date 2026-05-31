@@ -1,13 +1,15 @@
 /* ============================================================
    data.js — Shared Data Layer for مطعم صاجي
-   Uses Google Apps Script as backend for cross-device sync
+   Uses Supabase as backend with real-time subscriptions
    Performance-optimized with localStorage caching
    ============================================================ */
 
 // ══════════════════════════════════════════════════════════════
-// ⬇️  PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE  ⬇️
+// ⬇️  PASTE YOUR SUPABASE CONFIG HERE  ⬇️
 // ══════════════════════════════════════════════════════════════
-const API_URL = 'https://script.google.com/macros/s/AKfycbwsHnVxOr4QFtVqZnJQz8Kdx_rLyUwPsTV4LDpRxT-ahTlGiNKV4g2-1hG8DDLZI71C/exec';
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY_HERE';
+const ADMIN_EMAIL = 'admin@saji.restaurant';
 // ══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
@@ -21,16 +23,23 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '356430027743',
   appId: '1:356430027743:web:12d3a36cabd5555adc426a',
 };
-// ⬇️  PASTE YOUR VAPID KEY HERE (Firebase Console → Cloud Messaging → Web Push certificates)  ⬇️
 const FCM_VAPID_KEY = 'BIFqdoOVACa4TfSz5_SqREK0ustN24abyuoo9VmsvmA3LcOJG7YW13ra86wwPp1v2SQLV2_Gc0YCTRegQPHHTsU';
 // ══════════════════════════════════════════════════════════════
+
+// ─── Supabase Client ────────────────────────────────────────
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    storage: sessionStorage,
+  },
+});
 
 // ─── Firebase Messaging Setup ────────────────────────────────
 let _fcmToken = null;
 
 async function initFirebaseMessaging() {
   try {
-    if (!firebase || !firebase.messaging) {
+    if (typeof firebase === 'undefined' || !firebase.messaging) {
       console.warn('Firebase SDK not loaded');
       return null;
     }
@@ -38,29 +47,23 @@ async function initFirebaseMessaging() {
     firebase.initializeApp(FIREBASE_CONFIG);
     const messaging = firebase.messaging();
 
-    // Request notification permission
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Notification permission denied');
       return null;
     }
 
-    // Get SW registration (already registered in index.html)
     const swReg = await navigator.serviceWorker.ready;
 
-    // Get FCM token
     _fcmToken = await messaging.getToken({
       vapidKey: FCM_VAPID_KEY,
       serviceWorkerRegistration: swReg,
     });
     console.debug('FCM token obtained');
 
-    // Handle foreground messages (app is open and visible)
     messaging.onMessage((payload) => {
-      console.log('Foreground push received:', payload);
       const title = payload.notification?.title || 'مطعم صاجي';
       const body = payload.notification?.body || '';
-      // Show via service worker so it looks consistent
       swReg.showNotification(title, {
         body: body,
         icon: 'asstes/saji_app_logo.png',
@@ -82,7 +85,10 @@ function getFCMToken() {
 
 async function savePushToken(orderId, token) {
   if (!token) return;
-  return await apiPost({ action: 'savePushToken', orderId: orderId, fcmToken: token });
+  const { error } = await _supabase
+    .from('push_tokens')
+    .insert({ order_id: orderId, fcm_token: token });
+  return { success: !error };
 }
 
 // ─── Constants ───────────────────────────────────────────────
@@ -103,7 +109,7 @@ const CATEGORY_ICONS = {
   'المشاريب': '🥤',
 };
 
-// ─── Fallback Menu (shows immediately while API loads) ───────
+// ─── Fallback Menu ──────────────────────────────────────────
 const FALLBACK_MENU = [
   {id:'chicken_saj',name:'صاجية دجاج',description:'صاجية دجاج طازجة',category:'الصاج',price:2500,image:'asstes/dishes_assets/chiecken_saj.png',inStock:true,addons:[]},
   {id:'meat_saj',name:'صاجية لحم',description:'صاجية لحم طازجة',category:'الصاج',price:3500,image:'asstes/dishes_assets/meat_saj.png',inStock:true,addons:[]},
@@ -132,9 +138,8 @@ let _menuCache = [...FALLBACK_MENU];
 let _ordersCache = [];
 
 // ─── localStorage Persistence ────────────────────────────────
-// Menu rarely changes — cache it in localStorage so next visit is instant
 const MENU_STORAGE_KEY = 'saji_menu_cache';
-const MENU_CACHE_TTL = 60 * 1000; // 1 minute — after this, fetch fresh in background
+const MENU_CACHE_TTL = 60 * 1000;
 
 function loadMenuFromStorage() {
   try {
@@ -157,7 +162,6 @@ function saveMenuToStorage(data) {
   } catch (e) {}
 }
 
-// Initialize _menuCache from localStorage immediately (synchronous, no wait)
 (function () {
   const stored = loadMenuFromStorage();
   if (stored && stored.data) {
@@ -165,80 +169,48 @@ function saveMenuToStorage(data) {
   }
 })();
 
-// ─── In-flight Request Deduplication ─────────────────────────
-// Prevents multiple concurrent identical API calls
-const _inflightRequests = {};
+// ─── Data Transform Helpers ─────────────────────────────────
 
-// ─── API Helpers ─────────────────────────────────────────────
-
-async function apiGet(action, params) {
-  let url = API_URL + '?action=' + encodeURIComponent(action);
-  if (params) {
-    Object.keys(params).forEach(function(k) {
-      url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
-    });
-  }
-
-  // Attach admin token for authenticated requests
-  var adminToken = sessionStorage.getItem('admin_token');
-  if (adminToken) {
-    url += '&token=' + encodeURIComponent(adminToken);
-  }
-
-  // Deduplicate: if this exact request is already in-flight, reuse it
-  if (_inflightRequests[url]) {
-    return _inflightRequests[url];
-  }
-
-  const promise = (async () => {
-    try {
-      const res = await fetch(url, { redirect: 'follow' });
-      const text = await res.text();
-      return JSON.parse(text);
-    } catch (err) {
-      console.error('API GET error:', action, err);
-      return { error: err.message };
-    } finally {
-      delete _inflightRequests[url];
-    }
-  })();
-
-  _inflightRequests[url] = promise;
-  return promise;
+function transformMenuItem(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    category: row.category,
+    price: row.price,
+    image: row.image || '',
+    inStock: row.in_stock,
+    addons: row.addons || [],
+  };
 }
 
-async function apiPost(body) {
-  try {
-    // Attach admin token for authenticated requests
-    var adminToken = sessionStorage.getItem('admin_token');
-    if (adminToken) {
-      body.token = adminToken;
-    }
-
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(body),
-    });
-    try {
-      const text = await res.text();
-      return JSON.parse(text);
-    } catch (parseErr) {
-      // GAS redirect may give unreadable response — assume success
-      return { success: true };
-    }
-  } catch (err) {
-    console.error('API POST error:', err);
-    // Network error but POST may have still been processed
-    return { success: true };
-  }
+function transformOrder(row) {
+  return {
+    id: row.id,
+    phone: row.phone,
+    address: row.address,
+    name: row.customer_name,
+    items: (row.order_items || []).map(function (item) {
+      return {
+        name: item.item_name,
+        qty: item.qty,
+        unitPrice: item.unit_price,
+        addons: item.addons || [],
+        notes: item.notes || '',
+      };
+    }),
+    subtotal: row.subtotal,
+    deliveryFee: row.delivery_fee,
+    discount: row.discount,
+    total: row.total,
+    status: row.status,
+    timestamp: new Date(row.created_at).getTime(),
+  };
 }
 
 // ─── Menu Functions ──────────────────────────────────────────
 
 async function getMenu() {
-  // Return cached data immediately, then refresh in background if stale
   const stored = loadMenuFromStorage();
   const isFresh = stored && (Date.now() - stored.ts) < MENU_CACHE_TTL;
 
@@ -247,13 +219,17 @@ async function getMenu() {
     return stored.data;
   }
 
-  // Not fresh — fetch from API
   try {
-    const result = await apiGet('getMenu');
-    if (result && result.success && result.data && result.data.length > 0) {
-      _menuCache = result.data;
-      saveMenuToStorage(result.data);
-      return result.data;
+    const { data, error } = await _supabase
+      .from('menu_items')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (!error && data && data.length > 0) {
+      const menu = data.map(transformMenuItem);
+      _menuCache = menu;
+      saveMenuToStorage(menu);
+      return menu;
     }
   } catch (err) {
     console.warn('getMenu failed:', err);
@@ -261,28 +237,28 @@ async function getMenu() {
   return _menuCache;
 }
 
-// Fire-and-forget background menu refresh (doesn't block UI)
-function refreshMenuInBackground() {
-  apiGet('getMenu').then(result => {
-    if (result && result.success && result.data && result.data.length > 0) {
-      _menuCache = result.data;
-      saveMenuToStorage(result.data);
-    }
-  }).catch(() => {});
-}
-
 async function toggleStock(itemId, inStock) {
-  return await apiPost({ action: 'toggleStock', itemId: itemId, inStock: inStock });
+  const { error } = await _supabase
+    .from('menu_items')
+    .update({ in_stock: inStock })
+    .eq('id', itemId);
+  return { success: !error };
 }
 
 // ─── Orders Functions ────────────────────────────────────────
 
 async function getOrders() {
   try {
-    const result = await apiGet('getOrders');
-    if (result && result.success && result.data) {
-      _ordersCache = result.data;
-      return result.data;
+    const { data, error } = await _supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .in('status', ['pending', 'cooking', 'delivery'])
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      const orders = data.map(transformOrder);
+      _ordersCache = orders;
+      return orders;
     }
   } catch (err) {
     console.warn('getOrders failed:', err);
@@ -291,58 +267,276 @@ async function getOrders() {
 }
 
 async function saveOrder(order) {
-  return await apiPost({ action: 'saveOrder', order: order });
+  try {
+    const { error: orderError } = await _supabase
+      .from('orders')
+      .insert({
+        id: order.id,
+        customer_name: order.name || '',
+        phone: order.phone,
+        address: order.address,
+        status: 'pending',
+        subtotal: order.subtotal,
+        delivery_fee: order.deliveryFee,
+        discount: order.discount,
+        promo_code: order.promoCode || null,
+        total: order.total,
+      });
+
+    if (orderError) {
+      console.error('saveOrder failed:', orderError);
+      return { success: false };
+    }
+
+    const items = order.items.map(function (item) {
+      return {
+        order_id: order.id,
+        item_name: item.name,
+        qty: item.qty,
+        unit_price: item.unitPrice,
+        addons: item.addons || [],
+        notes: item.notes || '',
+      };
+    });
+
+    const { error: itemsError } = await _supabase
+      .from('order_items')
+      .insert(items);
+
+    if (itemsError) {
+      console.error('saveOrder items failed:', itemsError);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('saveOrder exception:', err);
+    return { success: false };
+  }
 }
 
 async function updateOrder(orderId, status) {
-  return await apiPost({ action: 'updateOrder', orderId: orderId, status: status });
+  const { error } = await _supabase
+    .from('orders')
+    .update({ status: status })
+    .eq('id', orderId);
+  return { success: !error };
 }
 
 async function getCompletedOrders() {
   try {
-    const result = await apiGet('getCompletedOrders');
-    if (result && result.success && result.data) return result.data;
-  } catch (err) { console.warn('getCompletedOrders failed:', err); }
+    const { data, error } = await _supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .in('status', ['done', 'cancelled'])
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      return data.map(transformOrder);
+    }
+  } catch (err) {
+    console.warn('getCompletedOrders failed:', err);
+  }
   return [];
 }
 
 async function getOrderStatus(orderId) {
   try {
-    const result = await apiGet('getOrderStatus', { orderId: orderId });
-    if (result && result.success) return result.status;
-  } catch (err) { console.warn('getOrderStatus failed:', err); }
+    const { data, error } = await _supabase
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .single();
+
+    if (!error && data) return data.status;
+  } catch (err) {
+    console.warn('getOrderStatus failed:', err);
+  }
   return null;
 }
 
 async function getOrderStatusFull(orderId) {
   try {
-    const result = await apiGet('getOrderStatus', { orderId: orderId });
-    if (result && result.success) {
+    const { data, error } = await _supabase
+      .from('orders')
+      .select('status, cancel_note')
+      .eq('id', orderId)
+      .single();
+
+    if (!error && data) {
       return {
-        status: result.status,
-        cancelNote: result.cancelNote || '',
+        status: data.status,
+        cancelNote: data.cancel_note || '',
       };
     }
-  } catch (err) { console.warn('getOrderStatusFull failed:', err); }
-  return null;
+  } catch (err) {
+    console.warn('getOrderStatusFull failed:', err);
+  }
+  return { status: 'not_found' };
 }
 
 async function declineOrder(orderId, note) {
-  return await apiPost({ action: 'declineOrder', orderId: orderId, note: note || '' });
+  const { error } = await _supabase
+    .from('orders')
+    .update({ status: 'cancelled', cancel_note: note || '' })
+    .eq('id', orderId);
+  return { success: !error };
+}
+
+async function clearCompletedOrders() {
+  const { error } = await _supabase
+    .from('orders')
+    .delete()
+    .in('status', ['done', 'cancelled']);
+  return { success: !error };
 }
 
 // ─── Promo Code Functions ────────────────────────────────────
 
 async function validatePromoCode(code) {
   try {
-    const result = await apiGet('validatePromo', { code: code });
-    if (result && result.success && result.promo) {
-      return result.promo;
+    const { data, error } = await _supabase
+      .from('promo_codes')
+      .select('code, type, value')
+      .eq('code', code)
+      .eq('active', true)
+      .single();
+
+    if (!error && data) {
+      return { code: data.code, type: data.type, value: data.value };
     }
   } catch (err) {
     console.warn('validatePromo failed:', err);
   }
   return null;
+}
+
+// ─── Restaurant Status ──────────────────────────────────────
+
+async function getRestaurantStatus() {
+  try {
+    const { data, error } = await _supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'restaurant_status')
+      .single();
+
+    if (!error && data) {
+      return { success: true, isOpen: data.value.isOpen };
+    }
+  } catch (err) {
+    console.warn('getRestaurantStatus failed:', err);
+  }
+  return { success: true, isOpen: true };
+}
+
+async function setRestaurantStatus(isOpen) {
+  const { error } = await _supabase
+    .from('settings')
+    .update({ value: { isOpen: isOpen } })
+    .eq('key', 'restaurant_status');
+  return { success: !error };
+}
+
+// ─── Admin Authentication ───────────────────────────────────
+
+async function adminLogin(password) {
+  try {
+    const { data, error } = await _supabase.auth.signInWithPassword({
+      email: ADMIN_EMAIL,
+      password: password,
+    });
+
+    if (error) {
+      console.warn('Admin login failed:', error.message);
+      return { success: false };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.warn('Admin login exception:', err);
+    return { success: false };
+  }
+}
+
+async function adminLogout() {
+  await _supabase.auth.signOut();
+}
+
+async function isAdminLoggedIn() {
+  const { data } = await _supabase.auth.getSession();
+  return !!(data && data.session);
+}
+
+// ─── Realtime Subscriptions ─────────────────────────────────
+
+let _orderChannel = null;
+let _ordersChannel = null;
+let _menuChannel = null;
+
+function subscribeToOrder(orderId, callback) {
+  unsubscribeFromOrder();
+  _orderChannel = _supabase
+    .channel('order-tracking-' + orderId)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'orders', filter: 'id=eq.' + orderId },
+      function (payload) {
+        if (payload.new) {
+          callback({
+            status: payload.new.status,
+            cancelNote: payload.new.cancel_note || '',
+          });
+        }
+      }
+    )
+    .subscribe();
+}
+
+function unsubscribeFromOrder() {
+  if (_orderChannel) {
+    _supabase.removeChannel(_orderChannel);
+    _orderChannel = null;
+  }
+}
+
+function subscribeToOrders(callback) {
+  unsubscribeFromOrders();
+  _ordersChannel = _supabase
+    .channel('admin-orders')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'orders' },
+      function () {
+        callback();
+      }
+    )
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'order_items' },
+      function () {
+        callback();
+      }
+    )
+    .subscribe();
+}
+
+function unsubscribeFromOrders() {
+  if (_ordersChannel) {
+    _supabase.removeChannel(_ordersChannel);
+    _ordersChannel = null;
+  }
+}
+
+function subscribeToMenu(callback) {
+  if (_menuChannel) {
+    _supabase.removeChannel(_menuChannel);
+  }
+  _menuChannel = _supabase
+    .channel('menu-updates')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'menu_items' },
+      function () {
+        callback();
+      }
+    )
+    .subscribe();
 }
 
 // ─── Utility Functions ───────────────────────────────────────
@@ -370,7 +564,6 @@ function validatePhone(phone) {
   return PHONE_REGEX.test(phone);
 }
 
-// ─── HTML Escape (XSS Prevention) ────────────────────────────
 function escapeHtml(str) {
   if (str == null) return '';
   return String(str)

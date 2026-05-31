@@ -1,6 +1,6 @@
 /* ============================================================
    app.js — Customer App Logic for مطعم صاجي
-   Uses async API calls to Google Apps Script
+   Uses Supabase Realtime for instant updates
    ============================================================ */
 
 (function () {
@@ -18,7 +18,6 @@
   let lastTrackedStatus = null;
 
   // ─── History / Back-Button Stack ────────────────────────────
-  // Each entry is a layer name: 'itemModal' | 'cartDrawer' | 'checkout' | 'tracking'
   const historyStack = [];
 
   function historyPush(layer) {
@@ -63,12 +62,9 @@
     $$('.screen').forEach(s => s.classList.remove('active'));
     $(screenId).classList.add('active');
     window.scrollTo(0, 0);
-    // Show floating cart only on menu and no active order
     floatingCart.style.display = (screenId === '#menuScreen' && cart.length > 0 && !hasActiveOrder) ? 'flex' : 'none';
-    // Show floating order card on menu screen if active order
     updateFloatingOrderCard();
 
-    // Push history for sub-screens (not when returning to menu or triggered by back button)
     if (!fromPopstate && screenId !== '#menuScreen') {
       const layer = screenId === '#checkoutScreen' ? 'checkout' : 'tracking';
       historyPush(layer);
@@ -120,38 +116,32 @@
 
     menuContent.querySelectorAll('.item-card').forEach(card => {
       card.addEventListener('click', () => {
-        if (hasActiveOrder) return; // Block adding items during active order
+        if (hasActiveOrder) return;
         const item = menuData.find(i => i.id === card.dataset.id);
         if (item && item.inStock) openItemModal(item);
       });
     });
   }
 
-  // Show menu INSTANTLY from cache, then refresh from API in background
   async function loadAndRenderMenu() {
-    // Step 1: Render immediately from _menuCache (populated from localStorage)
     if (_menuCache && _menuCache.length && menuData.length === 0) {
       menuData = _menuCache;
       renderMenuFromCache();
     }
 
-    // Step 2: Fetch menu + status in parallel (don't block each other)
     const [menuResult, statusResult] = await Promise.allSettled([
       getMenu(),
-      apiGet('getStatus'),
+      getRestaurantStatus(),
     ]);
 
-    // Apply fresh menu if it changed
     if (menuResult.status === 'fulfilled' && menuResult.value && menuResult.value.length) {
       const freshMenu = menuResult.value;
-      // Only re-render if data actually changed (avoid flicker)
       if (JSON.stringify(freshMenu) !== JSON.stringify(menuData)) {
         menuData = freshMenu;
         renderMenuFromCache();
       }
     }
 
-    // Apply restaurant status
     if (statusResult.status === 'fulfilled') {
       const status = statusResult.value;
       if (status && status.success && !status.isOpen) {
@@ -159,7 +149,6 @@
       }
     }
 
-    // Hide loading screen
     const loader = document.getElementById('loadingScreen');
     if (loader) loader.classList.add('hidden');
   }
@@ -282,7 +271,6 @@
     itemModal.classList.remove('active');
     document.body.style.overflow = '';
     currentItem = null;
-    // If closed by UI (X button / overlay tap), pop the history entry we pushed
     if (!fromPopstate && historyStack[historyStack.length - 1] === 'itemModal') {
       historyStack.pop();
       history.back();
@@ -373,7 +361,7 @@
     renderCartDrawer();
     cartOverlay.classList.add('active');
     cartDrawer.classList.add('active');
-    floatingCart.style.display = 'none'; // Hide to prevent click overlap
+    floatingCart.style.display = 'none';
     document.body.style.overflow = 'hidden';
     historyPush('cartDrawer');
   }
@@ -381,7 +369,7 @@
   function closeCart(fromPopstate) {
     cartOverlay.classList.remove('active');
     cartDrawer.classList.remove('active');
-    if (cart.length > 0) floatingCart.style.display = 'flex'; // Restore
+    if (cart.length > 0) floatingCart.style.display = 'flex';
     document.body.style.overflow = '';
     if (!fromPopstate && historyStack[historyStack.length - 1] === 'cartDrawer') {
       historyStack.pop();
@@ -424,7 +412,6 @@
     const total = subtotal + deliveryFee - discount;
     const meetsMin = subtotal >= MIN_ORDER;
 
-    // Delivery status message
     let deliveryMsgHtml = '';
     if (subtotal < FREE_DELIVERY_THRESHOLD) {
       const remaining = FREE_DELIVERY_THRESHOLD - subtotal;
@@ -482,14 +469,12 @@
   }
 
   function goToCheckout() {
-    // Close cart visually WITHOUT triggering history.back()
     cartOverlay.classList.remove('active');
     cartDrawer.classList.remove('active');
     document.body.style.overflow = '';
     const cartIdx = historyStack.indexOf('cartDrawer');
     if (cartIdx !== -1) historyStack.splice(cartIdx, 1);
 
-    // Pre-fill saved customer info
     const saved = JSON.parse(localStorage.getItem('saji_customer') || '{}');
     if (saved.phone) $('#customerPhone').value = saved.phone;
     if (saved.address) $('#customerAddress').value = saved.address;
@@ -565,7 +550,6 @@
 
     if (!valid) return;
 
-    // Disable button while submitting
     const submitBtn = $('#submitOrder');
     submitBtn.disabled = true;
     submitBtn.textContent = '...جاري الإرسال';
@@ -597,37 +581,32 @@
     lastTrackedStatus = 'pending';
     localStorage.setItem('saji_active_order', order.id);
 
-    // Save customer info for next order
     localStorage.setItem('saji_customer', JSON.stringify({ phone, address, name }));
     cart = [];
     appliedPromo = null;
     updateCartUI();
 
-    // Reset form
     submitBtn.disabled = false;
     submitBtn.textContent = 'تأكيد الطلب';
     $('#checkoutForm').reset();
 
-    // Save FCM push token with the order for background notifications
     const fcmToken = getFCMToken();
     if (fcmToken) {
       savePushToken(order.id, fcmToken).catch(() => {});
     }
 
-    // Show tracking screen first
     showScreen('#trackingScreen');
     $('#trackingOrderId').textContent = `رقم الطلب: ${order.id}`;
     hideOrderCompleted();
     updateTrackingTimeline('pending');
-    startTrackingPoll();
+    startTrackingRealtime();
   }
 
-  // ─── Order Tracking ────────────────────────────────────────
+  // ─── Order Tracking (Realtime) ─────────────────────────────
   const STATUS_ORDER = ['pending', 'cooking', 'delivery'];
 
   function updateTrackingTimeline(currentStatus) {
     if (currentStatus === 'cancelled') {
-      // Hide normal timeline, show cancellation UI
       $$('.timeline-step').forEach(step => {
         step.classList.remove('active', 'completed');
       });
@@ -641,29 +620,23 @@
     });
   }
 
-  let trackingInterval = null;
-  function startTrackingPoll() {
-    if (trackingInterval) clearInterval(trackingInterval);
-    trackingInterval = setInterval(async () => {
-      if (!currentOrderId) return;
-      const result = await getOrderStatusFull(currentOrderId);
+  function startTrackingRealtime() {
+    if (!currentOrderId) return;
+
+    subscribeToOrder(currentOrderId, function (result) {
       if (!result || result.status === 'not_found') {
-        // Order done or removed
         clearTrackingState();
         return;
       }
 
       const status = result.status;
 
-      // Update floating card status
       updateFloatingOrderStatus(status);
 
-      // Update tracking timeline if on tracking screen
       if ($('#trackingScreen').classList.contains('active')) {
         updateTrackingTimeline(status);
       }
 
-      // Handle cancelled order
       if (status === 'cancelled') {
         const note = result.cancelNote || '';
         showOrderCancelled(note);
@@ -676,30 +649,25 @@
       if (status === 'done') {
         clearTrackingState();
       }
-    }, 4000);
+    });
   }
 
   function clearTrackingState() {
-    clearInterval(trackingInterval);
-    trackingInterval = null;
+    unsubscribeFromOrder();
     currentOrderId = null;
     hasActiveOrder = false;
     lastTrackedStatus = null;
     localStorage.removeItem('saji_active_order');
     updateFloatingOrderCard();
-    // If on tracking screen, show done
     if ($('#trackingScreen').classList.contains('active')) {
       updateTrackingTimeline('done');
       showOrderCompleted();
     }
-    // If on menu screen, re-enable floating cart if cart has items
     floatingCart.style.display = cart.length > 0 ? 'flex' : 'none';
   }
 
-  // Same as clearTrackingState but doesn't switch to done screen — used for cancellation
   function clearTrackingStateKeepScreen() {
-    clearInterval(trackingInterval);
-    trackingInterval = null;
+    unsubscribeFromOrder();
     currentOrderId = null;
     hasActiveOrder = false;
     lastTrackedStatus = null;
@@ -709,30 +677,23 @@
   }
 
   function showOrderCompleted() {
-    // Mark all steps as completed
     $$('.timeline-step').forEach(step => {
       step.classList.remove('active');
       step.classList.add('completed');
     });
-    // Show completion message and new order button
     $('#orderDoneMsg').style.display = 'block';
     $('#newOrderBtn').style.display = 'block';
-    // Hide cancel message if any
     $('#orderCancelledMsg').style.display = 'none';
   }
 
   function showOrderCancelled(note) {
-    // Hide normal done message
     $('#orderDoneMsg').style.display = 'none';
-    // Show cancel message
     const cancelMsg = $('#orderCancelledMsg');
     cancelMsg.style.display = 'block';
     const cancelNote = $('#cancelNote');
     cancelNote.textContent = note || '';
     cancelNote.style.display = note ? 'block' : 'none';
-    // Show new order button
     $('#newOrderBtn').style.display = 'block';
-    // Update timeline to show cancelled
     updateTrackingTimeline('cancelled');
   }
 
@@ -742,10 +703,11 @@
     $('#orderCancelledMsg').style.display = 'none';
   }
 
-  // ─── Stock Sync Poll ───────────────────────────────────────
-  // Poll every 30s for stock changes
-  function startStockPoll() {
-    setInterval(() => { loadAndRenderMenu(); }, 30000);
+  // ─── Menu Realtime Sync ───────────────────────────────────
+  function startMenuRealtime() {
+    subscribeToMenu(function () {
+      loadAndRenderMenu();
+    });
   }
 
   // ─── Floating Order Card ──────────────────────────────────
@@ -772,7 +734,6 @@
   function updateFloatingOrderStatus(status) {
     const el = $('#focStatus');
     if (el) el.textContent = STATUS_LABELS[status] || status;
-    // Update dot color
     const dot = document.querySelector('.foc-dot');
     if (dot) {
       dot.className = 'foc-dot';
@@ -782,42 +743,30 @@
     }
   }
 
-  // ─── User Notifications ──────────────────────────────────
-  // Push notifications are now handled by Firebase Cloud Messaging (server-side).
-  // The old client-side notification system has been removed to avoid duplicates.
-  // FCM handles: cooking, delivery, done, cancelled status notifications.
-  // Permission is requested by initFirebaseMessaging() in data.js.
-
   // ─── Event Listeners ───────────────────────────────────────
   async function init() {
     renderCategories();
 
-    // Render cached menu SYNCHRONOUSLY first (instant UI)
     if (_menuCache && _menuCache.length) {
       menuData = _menuCache;
       renderMenuFromCache();
-      // Hide loading screen immediately since we have cached data
       const loader = document.getElementById('loadingScreen');
       if (loader) loader.classList.add('hidden');
     }
 
     setupCategoryObserver();
-    startStockPoll();
+    startMenuRealtime();
 
-    // Fetch fresh data in background (non-blocking)
     loadAndRenderMenu();
 
-    // Initialize Firebase Push Notifications
     initFirebaseMessaging().catch(() => {});
 
     // ─── Restore active order tracking ──────────────────────
     if (currentOrderId) {
       hasActiveOrder = true;
-      // Stay on menu with floating card, fetch status
       getOrderStatusFull(currentOrderId).then(result => {
         if (result && result.status !== 'not_found') {
           if (result.status === 'cancelled') {
-            // Order was cancelled while user was away
             showScreen('#trackingScreen');
             $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
             showOrderCancelled(result.cancelNote || '');
@@ -831,11 +780,10 @@
           clearTrackingState();
         }
       }).catch(() => {});
-      startTrackingPoll();
+      startTrackingRealtime();
       updateFloatingOrderCard();
     }
 
-    // Floating order card click → go to tracking screen
     $('#floatingOrderCard').addEventListener('click', () => {
       if (!currentOrderId) return;
       showScreen('#trackingScreen');
@@ -864,7 +812,6 @@
     $('#goCheckout').addEventListener('click', goToCheckout);
 
     $('#backToMenu').addEventListener('click', () => {
-      // Pop the checkout history entry by going back
       if (historyStack[historyStack.length - 1] === 'checkout') {
         historyStack.pop();
         history.back();
@@ -872,7 +819,6 @@
       showScreen('#menuScreen', true);
     });
 
-    // Tracking → back to menu (keep order tracking alive)
     $('#trackingBackToMenu').addEventListener('click', () => {
       showScreen('#menuScreen');
     });
@@ -897,7 +843,7 @@
       hasActiveOrder = false;
       lastTrackedStatus = null;
       localStorage.removeItem('saji_active_order');
-      if (trackingInterval) clearInterval(trackingInterval);
+      unsubscribeFromOrder();
       hideOrderCompleted();
       updateFloatingOrderCard();
       showScreen('#menuScreen');
