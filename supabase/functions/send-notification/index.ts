@@ -6,6 +6,12 @@ const firebaseServiceAccount = JSON.parse(
   Deno.env.get("FIREBASE_SERVICE_ACCOUNT")!
 );
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const STATUS_NOTIFICATIONS: Record<string, { title: string; body: (id: string) => string }> = {
   new_order: {
     title: "🔔 طلب جديد!",
@@ -112,12 +118,16 @@ async function sendFCM(
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     const { orderId, status } = await req.json();
 
     const notif = STATUS_NOTIFICATIONS[status];
     if (!notif) {
-      return Response.json({ success: true, skipped: true });
+      return Response.json({ success: true, skipped: true }, { headers: corsHeaders });
     }
 
     const targetOrderId = status === "new_order" ? "ADMIN" : orderId;
@@ -129,7 +139,7 @@ Deno.serve(async (req) => {
       .eq("order_id", targetOrderId);
 
     if (!tokens || tokens.length === 0) {
-      return Response.json({ success: true, noTokens: true });
+      return Response.json({ success: true, noTokens: true }, { headers: corsHeaders });
     }
 
     const accessToken = await getAccessToken();
@@ -142,8 +152,8 @@ Deno.serve(async (req) => {
       )
     );
 
-    return Response.json({ success: true, sent: results.length });
+    return Response.json({ success: true, sent: results.length }, { headers: corsHeaders });
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 500 });
+    return Response.json({ error: (err as Error).message }, { status: 500, headers: corsHeaders });
   }
 });
