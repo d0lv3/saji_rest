@@ -507,6 +507,8 @@ body {
 .cart-item-info h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
 .cart-item-info .cart-item-addons { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
 .cart-item-info .cart-item-notes { font-size: 11px; color: var(--warning); font-style: italic; }
+.cart-item-offer { border-right: 3px solid var(--primary); background: var(--primary-light); }
+.cart-item-offer-items { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
 .cart-item-price { font-size: 14px; font-weight: 700; color: var(--primary); white-space: nowrap; }
 .cart-item-remove {
   background: none;
@@ -1282,4 +1284,144 @@ body {
 }
 .pwa-gate-skip:hover {
   color: rgba(255,255,255,0.55);
+}
+
+/* ─── Special Offers Banner ───────────────────────── */
+#offersContainer {
+  padding: 0 16px;
+}
+#offersContainer:empty {
+  display: none;
+}
+
+.offer-banner {
+  background: linear-gradient(135deg, #FFF3E8 0%, #FFFDF8 100%);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.offer-banner::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(255,107,0,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.offer-banner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.offer-banner-badge {
+  background: var(--primary);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,0,0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(255,107,0,0); }
+}
+.offer-banner-timer {
+  font-size: 11px;
+  color: var(--danger);
+  font-weight: 600;
+  background: rgba(231,76,60,0.08);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+}
+
+.offer-banner-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 12px;
+}
+
+.offer-banner-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.offer-banner-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+.offer-banner-item-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.offer-banner-item-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.offer-banner-item-name {
+  white-space: nowrap;
+}
+
+.offer-banner-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.offer-banner-prices {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.offer-banner-original {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+.offer-banner-price {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.offer-add-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(255,107,0,0.25);
+}
+.offer-add-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255,107,0,0.3);
+}
+.offer-add-btn:active {
+  transform: translateY(0);
 }

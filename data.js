@@ -86,7 +86,7 @@ async function savePushToken(orderId, token) {
   if (!token) return;
   const { error } = await _supabase
     .from('push_tokens')
-    .insert({ order_id: orderId, fcm_token: token });
+    .upsert({ order_id: orderId, fcm_token: token }, { onConflict: 'order_id,fcm_token' });
   return { success: !error };
 }
 
@@ -570,15 +570,119 @@ function subscribeToMenu(callback) {
     .subscribe();
 }
 
+// ─── Offers Functions ───────────────────────────────────────
+
+async function getActiveOffers() {
+  try {
+    const { data, error } = await _supabase
+      .from('offers')
+      .select('*')
+      .eq('is_active', true)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      return data.map(function (offer) {
+        return {
+          id: offer.id,
+          title: offer.title,
+          price: offer.price,
+          itemIds: offer.item_ids,
+          expiresAt: offer.expires_at,
+          isActive: offer.is_active,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('getActiveOffers failed:', err);
+  }
+  return [];
+}
+
+async function getAllOffers() {
+  try {
+    const { data, error } = await _supabase
+      .from('offers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      return data.map(function (offer) {
+        return {
+          id: offer.id,
+          title: offer.title,
+          price: offer.price,
+          itemIds: offer.item_ids,
+          expiresAt: offer.expires_at,
+          isActive: offer.is_active,
+          createdAt: offer.created_at,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('getAllOffers failed:', err);
+  }
+  return [];
+}
+
+async function createOffer(title, price, itemIds, expiresAt) {
+  const { data, error } = await _supabase
+    .from('offers')
+    .insert({
+      title: title,
+      price: price,
+      item_ids: itemIds,
+      expires_at: expiresAt,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  return { success: !error, data: data, error: error };
+}
+
+async function deleteOffer(offerId) {
+  const { error } = await _supabase
+    .from('offers')
+    .delete()
+    .eq('id', offerId);
+
+  return { success: !error };
+}
+
+async function toggleOfferActive(offerId, isActive) {
+  const { error } = await _supabase
+    .from('offers')
+    .update({ is_active: isActive })
+    .eq('id', offerId);
+
+  return { success: !error };
+}
+
+function subscribeToOffers(callback) {
+  _supabase
+    .channel('offers-updates')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'offers' },
+      function () { callback(); }
+    )
+    .subscribe();
+}
+
 // ─── Push Notification (Edge Function) ──────────────────────
 
 async function sendPushNotification(orderId, status) {
   try {
-    await _supabase.functions.invoke('send-notification', {
-      body: { orderId: orderId, status: status },
+    const { data, error } = await _supabase.functions.invoke('send-notification', {
+      body: { orderId, status },
     });
+    if (error) {
+      console.error('Push notification error:', error);
+    } else {
+      console.log('Push notification sent:', data);
+    }
   } catch (err) {
-    console.warn('Push notification failed:', err);
+    console.error('Push notification exception:', err);
   }
 }
 
