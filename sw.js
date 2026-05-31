@@ -63,6 +63,11 @@ self.addEventListener('notificationclick', (e) => {
 
 // ─── Cache (Network-First) ──────────────────────────────────
 self.addEventListener('fetch', (e) => {
+  const url = e.request.url;
+  if (url.includes('supabase.co') || url.includes('googleapis.com') || e.request.method !== 'GET') {
+    return;
+  }
+
   e.respondWith(
     fetch(e.request)
       .then(res => {
