@@ -1,18 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const firebaseServiceAccount = JSON.parse(
-  Deno.env.get("FIREBASE_SERVICE_ACCOUNT")!
-);
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const STATUS_NOTIFICATIONS: Record<string, { title: string; body: (id: string) => string }> = {
+const STATUS_NOTIFICATIONS: Record<
+  string,
+  { title: string; body: (id: string) => string }
+> = {
   new_order: {
     title: "🔔 طلب جديد!",
     body: (id) => `طلب جديد ${id} — اضغط للمراجعة`,
@@ -42,15 +40,25 @@ function base64url(data: Uint8Array): string {
     .replace(/=/g, "");
 }
 
-async function getAccessToken(): Promise<string> {
+function getFirebaseConfig() {
+  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT not set");
+  return JSON.parse(raw);
+}
+
+async function getAccessToken(
+  serviceAccount: Record<string, string>
+): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const encoder = new TextEncoder();
 
-  const header = base64url(encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const header = base64url(
+    encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT" }))
+  );
   const payload = base64url(
     encoder.encode(
       JSON.stringify({
-        iss: firebaseServiceAccount.client_email,
+        iss: serviceAccount.client_email,
         scope: "https://www.googleapis.com/auth/firebase.messaging",
         aud: "https://oauth2.googleapis.com/token",
         iat: now,
@@ -61,11 +69,13 @@ async function getAccessToken(): Promise<string> {
 
   const signInput = `${header}.${payload}`;
 
-  const pemContents = firebaseServiceAccount.private_key
+  const pemContents = serviceAccount.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
     .replace(/\n/g, "");
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+  const binaryKey = Uint8Array.from(atob(pemContents), (c) =>
+    c.charCodeAt(0)
+  );
 
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
@@ -76,7 +86,11 @@ async function getAccessToken(): Promise<string> {
   );
 
   const signature = new Uint8Array(
-    await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(signInput))
+    await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      cryptoKey,
+      encoder.encode(signInput)
+    )
   );
 
   const jwt = `${signInput}.${base64url(signature)}`;
@@ -88,6 +102,9 @@ async function getAccessToken(): Promise<string> {
   });
 
   const data = await res.json();
+  if (!data.access_token) {
+    throw new Error("Failed to get access token: " + JSON.stringify(data));
+  }
   return data.access_token;
 }
 
@@ -95,9 +112,9 @@ async function sendFCM(
   token: string,
   title: string,
   body: string,
-  accessToken: string
+  accessToken: string,
+  projectId: string
 ) {
-  const projectId = firebaseServiceAccount.project_id;
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
     {
@@ -119,7 +136,7 @@ async function sendFCM(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -127,33 +144,49 @@ Deno.serve(async (req) => {
 
     const notif = STATUS_NOTIFICATIONS[status];
     if (!notif) {
-      return Response.json({ success: true, skipped: true }, { headers: corsHeaders });
+      return Response.json(
+        { success: true, skipped: true },
+        { headers: corsHeaders }
+      );
     }
 
     const targetOrderId = status === "new_order" ? "ADMIN" : orderId;
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const { data: tokens } = await supabase
       .from("push_tokens")
       .select("fcm_token")
       .eq("order_id", targetOrderId);
 
     if (!tokens || tokens.length === 0) {
-      return Response.json({ success: true, noTokens: true }, { headers: corsHeaders });
+      return Response.json(
+        { success: true, noTokens: true },
+        { headers: corsHeaders }
+      );
     }
 
-    const accessToken = await getAccessToken();
+    const firebaseConfig = getFirebaseConfig();
+    const accessToken = await getAccessToken(firebaseConfig);
     const title = notif.title;
     const body = notif.body(orderId);
 
     const results = await Promise.allSettled(
       tokens.map((t: { fcm_token: string }) =>
-        sendFCM(t.fcm_token, title, body, accessToken)
+        sendFCM(t.fcm_token, title, body, accessToken, firebaseConfig.project_id)
       )
     );
 
-    return Response.json({ success: true, sent: results.length }, { headers: corsHeaders });
+    return Response.json(
+      { success: true, sent: results.length },
+      { headers: corsHeaders }
+    );
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 500, headers: corsHeaders });
+    return Response.json(
+      { error: (err as Error).message },
+      { status: 500, headers: corsHeaders }
+    );
   }
 });
