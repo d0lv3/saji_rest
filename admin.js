@@ -310,15 +310,17 @@
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const email = $('#adminEmail').value.trim();
     const pass = passInput.value.trim();
-    if (!pass) return;
+    if (!email || !pass) return;
 
     loginBtn.disabled = true;
     loginBtn.textContent = '...جاري التحقق';
     loginError.textContent = '';
     passInput.classList.remove('error');
+    $('#adminEmail').classList.remove('error');
 
-    const result = await adminLogin(pass);
+    const result = await adminLogin(email, pass);
 
     if (result && result.success) {
       loginOverlay.classList.add('hidden');
