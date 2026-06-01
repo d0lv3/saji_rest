@@ -319,51 +319,30 @@ async function getOrders() {
   return _ordersCache;
 }
 
-async function saveOrder(order) {
+async function saveOrder(orderData) {
   try {
-    const { error: orderError } = await _supabase
-      .from('orders')
-      .insert({
-        id: order.id,
-        customer_name: order.name || '',
-        phone: order.phone,
-        address: order.address,
-        status: 'pending',
-        subtotal: order.subtotal,
-        delivery_fee: order.deliveryFee,
-        discount: order.discount,
-        promo_code: order.promoCode || null,
-        total: order.total,
-      });
-
-    if (orderError) {
-      console.error('saveOrder failed:', orderError);
-      return { success: false };
-    }
-
-    const items = order.items.map(function (item) {
-      return {
-        order_id: order.id,
-        item_name: item.name,
-        qty: item.qty,
-        unit_price: item.unitPrice,
-        addons: item.addons || [],
-        notes: item.notes || '',
-      };
+    var { data, error } = await _supabase.rpc('create_order', {
+      p_customer_name: orderData.name || '',
+      p_phone: orderData.phone,
+      p_address: orderData.address,
+      p_items: orderData.items,
+      p_promo_code: orderData.promoCode || null,
     });
 
-    const { error: itemsError } = await _supabase
-      .from('order_items')
-      .insert(items);
-
-    if (itemsError) {
-      console.error('saveOrder items failed:', itemsError);
+    if (error) {
+      console.error('saveOrder RPC failed:', error);
+      return { success: false, error: error.message };
     }
 
-    return { success: true };
+    // Store access token for secure order lookups
+    if (data && data.access_token) {
+      try { localStorage.setItem('saji_order_token_' + data.id, data.access_token); } catch (e) {}
+    }
+
+    return { success: true, data: data };
   } catch (err) {
     console.error('saveOrder exception:', err);
-    return { success: false };
+    return { success: false, error: err.message };
   }
 }
 
@@ -393,32 +372,40 @@ async function getCompletedOrders() {
 }
 
 async function getOrderStatus(orderId) {
-  try {
-    const { data, error } = await _supabase
-      .from('orders')
-      .select('status')
-      .eq('id', orderId)
-      .single();
-
-    if (!error && data) return data.status;
-  } catch (err) {
-    console.warn('getOrderStatus failed:', err);
-  }
-  return null;
+  var result = await getOrderStatusFull(orderId);
+  return result.status === 'not_found' ? null : result.status;
 }
 
 async function getOrderStatusFull(orderId) {
+  // Try secure RPC first (orders created with access_token)
   try {
-    const { data, error } = await _supabase
+    var token = localStorage.getItem('saji_order_token_' + orderId);
+    if (token) {
+      var rpcResult = await _supabase.rpc('get_order_status', {
+        p_order_id: orderId,
+        p_access_token: token,
+      });
+      if (!rpcResult.error && rpcResult.data && rpcResult.data.status !== 'not_found') {
+        return {
+          status: rpcResult.data.status,
+          cancelNote: rpcResult.data.cancel_note || '',
+        };
+      }
+    }
+  } catch (e) {}
+
+  // Fallback: direct query (old orders without access_token)
+  try {
+    var directResult = await _supabase
       .from('orders')
       .select('status, cancel_note')
       .eq('id', orderId)
       .single();
 
-    if (!error && data) {
+    if (!directResult.error && directResult.data) {
       return {
-        status: data.status,
-        cancelNote: data.cancel_note || '',
+        status: directResult.data.status,
+        cancelNote: directResult.data.cancel_note || '',
       };
     }
   } catch (err) {
