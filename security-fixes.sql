@@ -43,7 +43,7 @@ DECLARE
 BEGIN
   -- ── Generate secure IDs ──────────────────────────────────
   v_order_id     := 'ORD-' || UPPER(LEFT(REPLACE(gen_random_uuid()::TEXT, '-', ''), 12));
-  v_access_token := encode(gen_random_bytes(32), 'hex');
+  v_access_token := REPLACE(gen_random_uuid()::TEXT || gen_random_uuid()::TEXT, '-', '');
 
   -- ── Phase 1: Validate every item and look up real prices ─
   FOR v_rec IN
@@ -175,7 +175,7 @@ BEGIN
          elem->>'item_name',
          (elem->>'qty')::INTEGER,
          (elem->>'unit_price')::INTEGER,
-         elem->'addons',
+         ARRAY(SELECT jsonb_array_elements_text(elem->'addons')),
          elem->>'notes'
     FROM jsonb_array_elements(v_validated_items) elem;
 
