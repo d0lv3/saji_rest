@@ -852,12 +852,19 @@
   }
 
   // ─── Floating Order Card ──────────────────────────────────
-  const STATUS_LABELS = {
-    pending: '⏳ قيد الانتظار',
-    cooking: '🔥 جاري التحضير',
-    delivery: '🚗 في الطريق',
-    done: '✅ تم التسليم',
-    cancelled: '❌ تم الإلغاء',
+  const STATUS_ICONS = {
+    pending:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    cooking:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg>',
+    delivery:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+    done:      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    cancelled: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+  };
+  const STATUS_TEXTS = {
+    pending:   'قيد الانتظار',
+    cooking:   'جاري التحضير',
+    delivery:  'في الطريق',
+    done:      'تم التسليم',
+    cancelled: 'تم الإلغاء',
   };
 
   function updateFloatingOrderCard() {
@@ -905,7 +912,7 @@
 
   function updateFloatingOrderStatus(status) {
     const el = $('#focStatus');
-    if (el) el.textContent = STATUS_LABELS[status] || status;
+    if (el) el.innerHTML = (STATUS_ICONS[status] || '') + ' ' + (STATUS_TEXTS[status] || status);
     const dot = document.querySelector('.foc-dot');
     if (dot) {
       dot.className = 'foc-dot';

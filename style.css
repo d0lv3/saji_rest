@@ -1042,6 +1042,7 @@ body {
 }
 .foc-close-btn:hover { opacity: 1; background: rgba(255,255,255,0.2); }
 .foc-cancelled-mode .foc-close-btn { display: flex; }
+.foc-status svg { vertical-align: -2px; margin-inline-end: 2px; }
 @keyframes foc-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.8); }
