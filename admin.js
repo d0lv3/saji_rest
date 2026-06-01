@@ -218,12 +218,13 @@
   async function renderCompletedOrders() {
     const orders = await getCompletedOrders();
 
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+    const doneOrders = orders.filter(o => o.status === 'done');
+    const totalOrders = doneOrders.length;
+    const totalRevenue = doneOrders.reduce((sum, o) => sum + o.total, 0);
     const avgOrder = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
     const itemFreq = {};
-    orders.forEach(o => {
+    doneOrders.forEach(o => {
       o.items.forEach(item => {
         itemFreq[item.name] = (itemFreq[item.name] || 0) + item.qty;
       });

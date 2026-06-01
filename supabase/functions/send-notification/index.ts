@@ -1,11 +1,21 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = [
+  "https://www.saji.live",
+  "https://saji.live",
+  "https://saji-rest.vercel.app",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 const STATUS_NOTIFICATIONS: Record<
   string,
@@ -136,7 +146,7 @@ async function sendFCM(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
   let body: { orderId: string; status: string };
@@ -145,7 +155,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     return Response.json(
       { error: "Invalid request body", detail: (err as Error).message },
-      { status: 400, headers: corsHeaders }
+      { status: 400, headers: getCorsHeaders(req) }
     );
   }
 
@@ -156,7 +166,7 @@ Deno.serve(async (req) => {
     if (!notif) {
       return Response.json(
         { success: true, skipped: true },
-        { headers: corsHeaders }
+        { headers: getCorsHeaders(req) }
       );
     }
 
@@ -166,6 +176,21 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Validate that the order actually exists (prevents abuse)
+    if (status !== "new_order") {
+      const { data: order } = await sb
+        .from("orders")
+        .select("id")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!order) {
+        return Response.json(
+          { error: "Order not found" },
+          { status: 404, headers: getCorsHeaders(req) }
+        );
+      }
+    }
+
     const { data: tokens } = await sb
       .from("push_tokens")
       .select("fcm_token")
@@ -174,7 +199,7 @@ Deno.serve(async (req) => {
     if (!tokens || tokens.length === 0) {
       return Response.json(
         { success: true, noTokens: true },
-        { headers: corsHeaders }
+        { headers: getCorsHeaders(req) }
       );
     }
 
@@ -184,7 +209,7 @@ Deno.serve(async (req) => {
     } catch (err) {
       return Response.json(
         { error: "Firebase config parse failed", detail: (err as Error).message },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: getCorsHeaders(req) }
       );
     }
 
@@ -200,12 +225,12 @@ Deno.serve(async (req) => {
 
     return Response.json(
       { success: true, sent: results.length },
-      { headers: corsHeaders }
+      { headers: getCorsHeaders(req) }
     );
   } catch (err) {
     return Response.json(
       { error: (err as Error).message },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: getCorsHeaders(req) }
     );
   }
 });
