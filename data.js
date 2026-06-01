@@ -29,7 +29,7 @@ const FCM_VAPID_KEY = 'BIFqdoOVACa4TfSz5_SqREK0ustN24abyuoo9VmsvmA3LcOJG7YW13ra8
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
-    storage: sessionStorage,
+    storage: localStorage,
   },
 });
 
@@ -681,8 +681,13 @@ async function toggleOfferActive(offerId, isActive) {
   return { success: !error };
 }
 
+let _offersChannel = null;
+
 function subscribeToOffers(callback) {
-  _supabase
+  if (_offersChannel) {
+    _supabase.removeChannel(_offersChannel);
+  }
+  _offersChannel = _supabase
     .channel('offers-updates')
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'offers' },
@@ -715,7 +720,8 @@ function formatPrice(amount) {
 }
 
 function generateOrderId() {
-  return 'ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+  var uuid = crypto.randomUUID().replace(/-/g, '').substring(0, 12).toUpperCase();
+  return 'ORD-' + uuid;
 }
 
 function getTimeString(timestamp) {
