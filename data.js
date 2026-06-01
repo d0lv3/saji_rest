@@ -111,7 +111,7 @@ const CATEGORY_ICONS = {
 // ─── Fallback Menu ──────────────────────────────────────────
 const FALLBACK_MENU = [
   {id:'chicken_saj',name:'صاجية دجاج',description:'صاجية دجاج طازجة',category:'الصاج',price:2500,image:'asstes/dishes_assets/chiecken_saj.png',inStock:true,addons:[]},
-  {id:'meat_saj',name:'صاجية لحم',description:'صاجية لحم طازجة',category:'الصاج',price:3500,image:'asstes/dishes_assets/meat_saj.png',inStock:true,addons:[]},
+  {id:'meat_saj',name:'صاجية لحم',description:'صاجية لحم طازجة',category:'الصاج',price:3000,image:'asstes/dishes_assets/meat_saj.png',inStock:true,addons:[]},
   {id:'chicken_saj_plate',name:'وجبة عربي صاج دجاج',description:'وجبة عربي صاج دجاج مع مخللات',category:'الصاج',price:3000,image:'asstes/dishes_assets/chicken_saj_plate.png',inStock:true,addons:[]},
   {id:'meat_saj_plate',name:'وجبة عربي صاج لحم',description:'وجبة عربي صاج لحم مع مخللات',category:'الصاج',price:4000,image:'asstes/dishes_assets/meat_saj_plate.png',inStock:true,addons:[]},
   {id:'saj_burger',name:'صاج بركر',description:'صاج بركر مميز',category:'الصاج',price:2500,image:'asstes/dishes_assets/saj_burger.png',inStock:true,addons:[]},
@@ -128,8 +128,8 @@ const FALLBACK_MENU = [
   {id:'fries_large',name:'قدح فنكر كبير',description:'قدح فنكر كبير',category:'الفنكر',price:2000,image:'asstes/dishes_assets/fries_plate.png',inStock:true,addons:[]},
   {id:'fries_large_cheese',name:'قدح فنكر كبير بالجبن',description:'قدح فنكر كبير بالجبن',category:'الفنكر',price:2500,image:'asstes/dishes_assets/fries_plate_w_cheese.jpg',inStock:true,addons:[]},
   {id:'water',name:'ماء',description:'مياه معدنية',category:'المشاريب',price:250,image:'asstes/dishes_assets/wbottle.png',inStock:true,addons:[]},
-  {id:'pepsi',name:'بيبسي',description:'مشروب غازي بارد',category:'المشاريب',price:500,image:'asstes/dishes_assets/pepsi.png',inStock:true,addons:[]},
-  {id:'grape_juice',name:'عصير زبيب',description:'عصير زبيب طبيعي',category:'المشاريب',price:500,image:'asstes/dishes_assets/brjuice.png',inStock:true,addons:[]},
+  {id:'pepsi',name:'كولا',description:'مشروب غازي بارد',category:'المشاريب',price:500,image:'asstes/dishes_assets/cola.png',inStock:true,addons:[]},
+  {id:'grape_juice',name:'عصير زبيب',description:'عصير زبيب طبيعي',category:'المشاريب',price:1000,image:'asstes/dishes_assets/brjuice.png',inStock:true,addons:[]},
 ];
 
 // ─── Local Cache ─────────────────────────────────────────────

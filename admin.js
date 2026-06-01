@@ -397,29 +397,70 @@
   }
 
   // ─── Offers Management ──────────────────────────────────────
+  // selectedOfferItems: [{id: 'meat_saj', qty: 1}, ...]
   let selectedOfferItems = [];
+
+  function getSelectedItem(itemId) {
+    return selectedOfferItems.find(s => s.id === itemId);
+  }
 
   function renderOfferItemsGrid() {
     const grid = $('#offerItemsGrid');
     if (!grid) return;
     const menu = menuCache.length ? menuCache : _menuCache;
-    grid.innerHTML = menu.map(item => `
-      <label class="offer-item-check ${selectedOfferItems.includes(item.id) ? 'checked' : ''}" data-item-id="${item.id}">
-        <input type="checkbox" ${selectedOfferItems.includes(item.id) ? 'checked' : ''} value="${item.id}">
-        <span class="offer-item-name">${escapeHtml(item.name)}</span>
-        <span class="offer-item-price">${formatPrice(item.price)}</span>
-      </label>
-    `).join('');
+    grid.innerHTML = menu.map(item => {
+      const sel = getSelectedItem(item.id);
+      return `
+        <div class="offer-item-check ${sel ? 'checked' : ''}" data-item-id="${item.id}">
+          <input type="checkbox" ${sel ? 'checked' : ''} value="${item.id}">
+          <span class="offer-item-name">${escapeHtml(item.name)}</span>
+          <span class="offer-item-price">${formatPrice(item.price)}</span>
+          <div class="offer-item-qty ${sel ? 'visible' : ''}" data-item-id="${item.id}">
+            <button type="button" class="oiq-btn oiq-minus" data-item-id="${item.id}">−</button>
+            <span class="oiq-val">${sel ? sel.qty : 1}</span>
+            <button type="button" class="oiq-btn oiq-plus" data-item-id="${item.id}">+</button>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     grid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
       cb.addEventListener('change', () => {
+        const card = cb.closest('.offer-item-check');
+        const qtyRow = card.querySelector('.offer-item-qty');
         if (cb.checked) {
-          selectedOfferItems.push(cb.value);
+          selectedOfferItems.push({ id: cb.value, qty: 1 });
+          qtyRow.classList.add('visible');
         } else {
-          selectedOfferItems = selectedOfferItems.filter(id => id !== cb.value);
+          selectedOfferItems = selectedOfferItems.filter(s => s.id !== cb.value);
+          qtyRow.classList.remove('visible');
         }
-        cb.closest('.offer-item-check').classList.toggle('checked', cb.checked);
+        card.classList.toggle('checked', cb.checked);
         updateOfferPreview();
+      });
+    });
+
+    grid.querySelectorAll('.oiq-plus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sel = getSelectedItem(btn.dataset.itemId);
+        if (sel) {
+          sel.qty = Math.min(sel.qty + 1, 10);
+          btn.closest('.offer-item-qty').querySelector('.oiq-val').textContent = sel.qty;
+          updateOfferPreview();
+        }
+      });
+    });
+
+    grid.querySelectorAll('.oiq-minus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sel = getSelectedItem(btn.dataset.itemId);
+        if (sel && sel.qty > 1) {
+          sel.qty--;
+          btn.closest('.offer-item-qty').querySelector('.oiq-val').textContent = sel.qty;
+          updateOfferPreview();
+        }
       });
     });
   }
@@ -432,9 +473,9 @@
       summary.style.display = 'none';
       return;
     }
-    const originalPrice = selectedOfferItems.reduce((sum, id) => {
-      const item = menu.find(m => m.id === id);
-      return sum + (item ? item.price : 0);
+    const originalPrice = selectedOfferItems.reduce((sum, sel) => {
+      const item = menu.find(m => m.id === sel.id);
+      return sum + (item ? item.price * sel.qty : 0);
     }, 0);
     const offerPrice = parseInt(priceInput.value) || 0;
     const savings = originalPrice - offerPrice;
@@ -468,11 +509,14 @@
       if (durationUnit === 'weeks') ms = durationVal * 604800000;
       const expiresAt = new Date(Date.now() + ms).toISOString();
 
+      // Store as [{id, qty}] in item_ids
+      const itemData = selectedOfferItems.map(s => ({ id: s.id, qty: s.qty }));
+
       const btn = $('#offerSubmitBtn');
       btn.disabled = true;
       btn.textContent = '...جاري الإنشاء';
 
-      const result = await createOffer(title, price, selectedOfferItems, expiresAt);
+      const result = await createOffer(title, price, itemData, expiresAt);
 
       btn.disabled = false;
       btn.textContent = 'إنشاء العرض';
@@ -489,6 +533,14 @@
     });
   }
 
+  // Helper: normalize itemIds — supports both old ["id"] and new [{id, qty}] formats
+  function normalizeOfferItems(itemIds) {
+    return itemIds.map(entry => {
+      if (typeof entry === 'string') return { id: entry, qty: 1 };
+      return { id: entry.id, qty: entry.qty || 1 };
+    });
+  }
+
   async function renderOffersList() {
     const list = $('#offersListAdmin');
     if (!list) return;
@@ -502,13 +554,15 @@
 
     list.innerHTML = offers.map(offer => {
       const expired = new Date(offer.expiresAt) < new Date();
-      const itemNames = offer.itemIds.map(id => {
-        const item = menu.find(m => m.id === id);
-        return item ? item.name : id;
+      const entries = normalizeOfferItems(offer.itemIds);
+      const itemTags = entries.map(e => {
+        const item = menu.find(m => m.id === e.id);
+        const name = item ? item.name : e.id;
+        return e.qty > 1 ? name + ' ×' + e.qty : name;
       });
-      const originalPrice = offer.itemIds.reduce((sum, id) => {
-        const item = menu.find(m => m.id === id);
-        return sum + (item ? item.price : 0);
+      const originalPrice = entries.reduce((sum, e) => {
+        const item = menu.find(m => m.id === e.id);
+        return sum + (item ? item.price * e.qty : 0);
       }, 0);
 
       const expiryDate = new Date(offer.expiresAt);
@@ -535,7 +589,7 @@
             </div>
             <div class="offer-admin-price">${formatPrice(offer.price)}</div>
           </div>
-          <div class="offer-admin-items">${itemNames.map(n => '<span class="offer-admin-item-tag">' + escapeHtml(n) + '</span>').join('')}</div>
+          <div class="offer-admin-items">${itemTags.map(n => '<span class="offer-admin-item-tag">' + escapeHtml(n) + '</span>').join('')}</div>
           <div class="offer-admin-meta">
             <span>${expired ? 'انتهى' : 'ينتهي خلال'}: ${timeLeftStr}</span>
             ${originalPrice > offer.price ? '<span class="offer-admin-savings">توفير ' + formatPrice(originalPrice - offer.price) + '</span>' : ''}

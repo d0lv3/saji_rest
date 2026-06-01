@@ -1209,6 +1209,7 @@ body {
 .offer-item-check {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 12px;
   border: 1.5px solid var(--border-default);
@@ -1240,6 +1241,45 @@ body {
   font-weight: 600;
   font-size: 12px;
   white-space: nowrap;
+}
+.offer-item-qty {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  margin-top: 6px;
+  width: 100%;
+}
+.offer-item-qty.visible {
+  display: flex;
+}
+.oiq-btn {
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+.oiq-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+.oiq-val {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+  color: var(--text-primary);
 }
 
 .offer-preview-summary {
