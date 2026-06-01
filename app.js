@@ -16,6 +16,8 @@
   let currentOrderId = localStorage.getItem('saji_active_order') || null;
   let hasActiveOrder = !!currentOrderId;
   let lastTrackedStatus = null;
+  let cancelledInfo = null;   // { orderId, note, ts }
+  let cancelledTimer = null;
 
   // ─── History / Back-Button Stack ────────────────────────────
   const historyStack = [];
@@ -699,6 +701,7 @@
       return;
     }
 
+    dismissCancelledCard();
     var serverOrder = result.data;
     console.log('Order created:', serverOrder);
 
@@ -768,8 +771,10 @@
 
       if (status === 'cancelled') {
         const note = result.cancelNote || '';
+        var cancelOrderId = currentOrderId;
         showOrderCancelled(note);
         clearTrackingStateKeepScreen();
+        setCancelledCard(cancelOrderId, note);
         return;
       }
 
@@ -859,12 +864,43 @@
     const card = $('#floatingOrderCard');
     if (!card) return;
     const menuActive = $('#menuScreen').classList.contains('active');
+
+    // Cancelled card takes priority (persists until dismissed)
+    if (cancelledInfo && menuActive) {
+      card.style.display = 'flex';
+      card.classList.add('foc-cancelled-mode');
+      $('#focOrderId').textContent = cancelledInfo.orderId;
+      var titleEl = card.querySelector('.foc-title');
+      if (titleEl) titleEl.textContent = 'تم إلغاء طلبك';
+      updateFloatingOrderStatus('cancelled');
+      return;
+    }
+
+    // Normal active order
+    card.classList.remove('foc-cancelled-mode');
+    var titleEl2 = card.querySelector('.foc-title');
+    if (titleEl2) titleEl2.textContent = 'طلبك الحالي';
     if (hasActiveOrder && currentOrderId && menuActive) {
       card.style.display = 'flex';
       $('#focOrderId').textContent = currentOrderId;
     } else {
       card.style.display = 'none';
     }
+  }
+
+  function setCancelledCard(orderId, note) {
+    cancelledInfo = { orderId: orderId, note: note || '', ts: Date.now() };
+    try { localStorage.setItem('saji_cancelled_info', JSON.stringify(cancelledInfo)); } catch (e) {}
+    if (cancelledTimer) clearTimeout(cancelledTimer);
+    cancelledTimer = setTimeout(dismissCancelledCard, 15 * 60 * 1000);
+    updateFloatingOrderCard();
+  }
+
+  function dismissCancelledCard() {
+    cancelledInfo = null;
+    try { localStorage.removeItem('saji_cancelled_info'); } catch (e) {}
+    if (cancelledTimer) { clearTimeout(cancelledTimer); cancelledTimer = null; }
+    updateFloatingOrderCard();
   }
 
   function updateFloatingOrderStatus(status) {
@@ -904,10 +940,12 @@
       getOrderStatusFull(currentOrderId).then(result => {
         if (result && result.status !== 'not_found') {
           if (result.status === 'cancelled') {
+            var cancelId = currentOrderId;
             showScreen('#trackingScreen');
-            $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
+            $('#trackingOrderId').textContent = 'رقم الطلب: ' + cancelId;
             showOrderCancelled(result.cancelNote || '');
             clearTrackingStateKeepScreen();
+            setCancelledCard(cancelId, result.cancelNote || '');
             return;
           }
           if (result.status === 'done') {
@@ -926,12 +964,44 @@
       startTrackingRealtime();
     }
 
-    $('#floatingOrderCard').addEventListener('click', () => {
+    // ─── Restore cancelled card from localStorage ───────────
+    if (!currentOrderId) {
+      try {
+        var saved = JSON.parse(localStorage.getItem('saji_cancelled_info') || 'null');
+        if (saved && saved.ts) {
+          var elapsed = Date.now() - saved.ts;
+          if (elapsed < 15 * 60 * 1000) {
+            cancelledInfo = saved;
+            cancelledTimer = setTimeout(dismissCancelledCard, (15 * 60 * 1000) - elapsed);
+            updateFloatingOrderCard();
+          } else {
+            localStorage.removeItem('saji_cancelled_info');
+          }
+        }
+      } catch (e) {}
+    }
+
+    $('#floatingOrderCard').addEventListener('click', function (e) {
+      if (e.target.closest('#focCloseBtn')) return;
+
+      if (cancelledInfo) {
+        showScreen('#trackingScreen');
+        $('#trackingOrderId').textContent = 'رقم الطلب: ' + cancelledInfo.orderId;
+        updateTrackingTimeline('cancelled');
+        showOrderCancelled(cancelledInfo.note || '');
+        return;
+      }
+
       if (!currentOrderId) return;
       showScreen('#trackingScreen');
-      $('#trackingOrderId').textContent = `رقم الطلب: ${currentOrderId}`;
+      $('#trackingOrderId').textContent = 'رقم الطلب: ' + currentOrderId;
       hideOrderCompleted();
       if (lastTrackedStatus) updateTrackingTimeline(lastTrackedStatus);
+    });
+
+    $('#focCloseBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      dismissCancelledCard();
     });
 
     itemModal.addEventListener('click', (e) => { if (e.target === itemModal) closeItemModal(); });
@@ -987,7 +1057,7 @@
       localStorage.removeItem('saji_active_order');
       unsubscribeFromOrder();
       hideOrderCompleted();
-      updateFloatingOrderCard();
+      dismissCancelledCard();
       showScreen('#menuScreen');
     });
   }
