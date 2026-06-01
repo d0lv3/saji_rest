@@ -9,6 +9,19 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
+  // ─── SVG Icons ─────────────────────────────────────────────
+  const IC = {
+    fire:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg>',
+    truck:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+    check:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    x:       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    phone:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>',
+    pin:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    user:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    note:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    trash:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
+  };
+
   let lastOrderCount = 0;
   let audioCtx = null;
   let menuCache = [];
@@ -155,21 +168,21 @@
       itemsHtml += `<li>
         <strong>${escapeHtml(item.name)}</strong> × ${parseInt(item.qty) || 0} — ${formatPrice(item.unitPrice * item.qty)}
         ${item.addons && item.addons.length ? `<div class="item-addons">+ ${item.addons.map(a => escapeHtml(a)).join('، ')}</div>` : ''}
-        ${item.notes ? `<div class="item-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
+        ${item.notes ? `<div class="item-notes">${IC.note} ${escapeHtml(item.notes)}</div>` : ''}
       </li>`;
     });
     itemsHtml += '</ul>';
 
     let actionsHtml = '<div class="order-actions">';
     if (currentStatus === 'pending') {
-      actionsHtml += `<button class="order-action-btn cooking" data-action="cooking" data-order-id="${order.id}">🔥 بدء التحضير</button>`;
-      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">❌ رفض</button>`;
+      actionsHtml += `<button class="order-action-btn cooking" data-action="cooking" data-order-id="${order.id}">${IC.fire} بدء التحضير</button>`;
+      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">${IC.x} رفض</button>`;
     } else if (currentStatus === 'cooking') {
-      actionsHtml += `<button class="order-action-btn delivery" data-action="delivery" data-order-id="${order.id}">🚗 إرسال للتوصيل</button>`;
-      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">❌ رفض</button>`;
+      actionsHtml += `<button class="order-action-btn delivery" data-action="delivery" data-order-id="${order.id}">${IC.truck} إرسال للتوصيل</button>`;
+      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">${IC.x} رفض</button>`;
     } else if (currentStatus === 'delivery') {
-      actionsHtml += `<button class="order-action-btn done" data-action="done" data-order-id="${order.id}">✅ تم التسليم</button>`;
-      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">❌ رفض</button>`;
+      actionsHtml += `<button class="order-action-btn done" data-action="done" data-order-id="${order.id}">${IC.check} تم التسليم</button>`;
+      actionsHtml += `<button class="order-action-btn decline decline-toggle-btn" data-order-id="${order.id}">${IC.x} رفض</button>`;
     }
     actionsHtml += '</div>';
 
@@ -187,9 +200,9 @@
           <span class="order-time">${time} · ${date}</span>
         </div>
         <div class="order-card-body">
-          <div class="order-field"><span class="field-label">📞 الهاتف:</span><span>${escapeHtml(order.phone)}</span></div>
-          <div class="order-field"><span class="field-label">📍 العنوان:</span><span>${escapeHtml(order.address)}</span></div>
-          ${order.name ? `<div class="order-field"><span class="field-label">👤 الاسم:</span><span>${escapeHtml(order.name)}</span></div>` : ''}
+          <div class="order-field"><span class="field-label">${IC.phone} الهاتف:</span><span>${escapeHtml(order.phone)}</span></div>
+          <div class="order-field"><span class="field-label">${IC.pin} العنوان:</span><span>${escapeHtml(order.address)}</span></div>
+          ${order.name ? `<div class="order-field"><span class="field-label">${IC.user} الاسم:</span><span>${escapeHtml(order.name)}</span></div>` : ''}
           ${itemsHtml}
         </div>
         <div class="order-card-total">
@@ -260,7 +273,7 @@
     btn.textContent = '...جاري المسح';
     await clearCompletedOrders();
     btn.disabled = false;
-    btn.textContent = '🗑️ مسح الكل';
+    btn.innerHTML = IC.trash + ' مسح الكل';
     await renderCompletedOrders();
   });
 
@@ -673,9 +686,9 @@
           </div>
           <div class="offer-admin-actions">
             ${!expired ? `<button class="offer-toggle-btn" data-offer-id="${offer.id}" data-active="${offer.isActive ? '1' : '0'}">
-              ${offer.isActive ? '⏸ إيقاف' : '▶ تفعيل'}
+              ${offer.isActive ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> إيقاف' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> تفعيل'}
             </button>` : ''}
-            <button class="offer-delete-btn" data-offer-id="${offer.id}">🗑 حذف</button>
+            <button class="offer-delete-btn" data-offer-id="${offer.id}">${IC.trash} حذف</button>
           </div>
         </div>
       `;
