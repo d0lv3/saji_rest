@@ -1021,6 +1021,7 @@ body {
 .foc-dot.cooking { background: #f97316; }
 .foc-dot.delivery { background: #22c55e; }
 .foc-dot.done { background: #22c55e; animation: none; }
+.foc-dot.cancelled { background: #ef4444; animation: none; }
 @keyframes foc-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.8); }
