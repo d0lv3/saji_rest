@@ -265,27 +265,104 @@
   });
 
   // ─── Render Menu Management ─────────────────────────────────
+  let editingItemId = null;
+
   async function renderMenuTable() {
     const menu = await getMenu();
     menuCache = menu;
     const body = $('#menuTableBody');
-    body.innerHTML = menu.map(item => `
-      <div class="menu-table-row">
-        <div><span class="item-name">${item.name}</span></div>
-        <span class="item-cat">${item.category}</span>
-        <span class="item-price-cell">${formatPrice(item.price)}</span>
-        <label class="toggle-switch">
-          <input type="checkbox" ${item.inStock ? 'checked' : ''} data-item-id="${item.id}">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-    `).join('');
+    body.innerHTML = menu.map(item => {
+      const isEditing = editingItemId === item.id;
+      if (isEditing) {
+        return `
+          <div class="menu-table-row editing" data-item-id="${item.id}">
+            <div class="edit-row-fields">
+              <div class="edit-field">
+                <label>الاسم</label>
+                <input type="text" class="edit-input edit-name" value="${escapeHtml(item.name)}" data-item-id="${item.id}">
+              </div>
+              <div class="edit-field">
+                <label>السعر (د.ع)</label>
+                <input type="number" class="edit-input edit-price" value="${item.price}" min="0" data-item-id="${item.id}">
+              </div>
+              <div class="edit-field">
+                <label>التصنيف</label>
+                <select class="edit-input edit-category" data-item-id="${item.id}">
+                  ${CATEGORIES.map(cat => `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="edit-row-actions">
+              <button class="edit-save-btn" data-item-id="${item.id}">حفظ</button>
+              <button class="edit-cancel-btn" data-item-id="${item.id}">إلغاء</button>
+              <label class="toggle-switch">
+                <input type="checkbox" ${item.inStock ? 'checked' : ''} data-item-id="${item.id}">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div class="menu-table-row" data-item-id="${item.id}">
+          <div><span class="item-name">${escapeHtml(item.name)}</span></div>
+          <span class="item-cat">${escapeHtml(item.category)}</span>
+          <span class="item-price-cell">${formatPrice(item.price)}</span>
+          <div class="menu-row-controls">
+            <button class="edit-btn" data-item-id="${item.id}" title="تعديل">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <label class="toggle-switch">
+              <input type="checkbox" ${item.inStock ? 'checked' : ''} data-item-id="${item.id}">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      `;
+    }).join('');
 
+    // Stock toggles
     body.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
       toggle.addEventListener('change', async () => {
         toggle.disabled = true;
         await toggleStock(toggle.dataset.itemId, toggle.checked);
         toggle.disabled = false;
+      });
+    });
+
+    // Edit buttons
+    body.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editingItemId = btn.dataset.itemId;
+        renderMenuTable();
+      });
+    });
+
+    // Cancel edit
+    body.querySelectorAll('.edit-cancel-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editingItemId = null;
+        renderMenuTable();
+      });
+    });
+
+    // Save edit
+    body.querySelectorAll('.edit-save-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.itemId;
+        const row = body.querySelector(`.menu-table-row[data-item-id="${id}"]`);
+        const newName = row.querySelector('.edit-name').value.trim();
+        const newPrice = parseInt(row.querySelector('.edit-price').value);
+        const newCategory = row.querySelector('.edit-category').value;
+
+        if (!newName || !newPrice) return;
+
+        btn.disabled = true;
+        btn.textContent = '...حفظ';
+
+        await updateMenuItem(id, { name: newName, price: newPrice, category: newCategory });
+        editingItemId = null;
+        await renderMenuTable();
       });
     });
   }
