@@ -132,6 +132,14 @@
     renderOffers();
   }
 
+  // Helper: normalize itemIds — supports both old ["id"] and new [{id, qty}] formats
+  function normalizeOfferItems(itemIds) {
+    return itemIds.map(function (entry) {
+      if (typeof entry === 'string') return { id: entry, qty: 1 };
+      return { id: entry.id, qty: entry.qty || 1 };
+    });
+  }
+
   function renderOffers() {
     const container = document.getElementById('offersContainer');
     if (!container) return;
@@ -141,12 +149,13 @@
     }
 
     container.innerHTML = activeOffers.map(offer => {
-      const items = offer.itemIds.map(id => {
-        const item = menuData.find(m => m.id === id);
-        return item ? item : null;
+      const entries = normalizeOfferItems(offer.itemIds);
+      const items = entries.map(e => {
+        const item = menuData.find(m => m.id === e.id);
+        return item ? { item: item, qty: e.qty } : null;
       }).filter(Boolean);
 
-      const originalPrice = items.reduce((sum, item) => sum + item.price, 0);
+      const originalPrice = items.reduce((sum, e) => sum + e.item.price * e.qty, 0);
       const savings = originalPrice - offer.price;
       const expiresAt = new Date(offer.expiresAt);
       const timeLeft = expiresAt - Date.now();
@@ -168,10 +177,10 @@
           </div>
           <h3 class="offer-banner-title">${escapeHtml(offer.title)}</h3>
           <div class="offer-banner-items">
-            ${items.map(item => `
+            ${items.map(e => `
               <div class="offer-banner-item">
-                ${item.image ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="offer-banner-item-img">` : `<span class="offer-banner-item-icon">${CATEGORY_ICONS[item.category] || '🍽️'}</span>`}
-                <span class="offer-banner-item-name">${escapeHtml(item.name)}</span>
+                ${e.item.image ? `<img src="${escapeHtml(e.item.image)}" alt="${escapeHtml(e.item.name)}" class="offer-banner-item-img">` : `<span class="offer-banner-item-icon">${CATEGORY_ICONS[e.item.category] || '🍽️'}</span>`}
+                <span class="offer-banner-item-name">${e.qty > 1 ? e.qty + '× ' : ''}${escapeHtml(e.item.name)}</span>
               </div>
             `).join('')}
           </div>
@@ -198,8 +207,12 @@
   }
 
   function addOfferToCart(offer) {
-    const items = offer.itemIds.map(id => menuData.find(m => m.id === id)).filter(Boolean);
-    const itemNames = items.map(i => i.name).join(' + ');
+    const entries = normalizeOfferItems(offer.itemIds);
+    const itemNames = entries.map(e => {
+      const item = menuData.find(m => m.id === e.id);
+      const name = item ? item.name : e.id;
+      return e.qty > 1 ? name + ' ×' + e.qty : name;
+    }).join(' + ');
 
     cart.push({
       cartId: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
@@ -260,7 +273,6 @@
         ${imgHtml}
         <div class="item-info">
           <h3>${escapeHtml(item.name)}</h3>
-          <p class="item-desc">${escapeHtml(item.description)}</p>
           <div class="item-price">${formatPrice(item.price)}</div>
         </div>
         ${!item.inStock ? '<span class="stock-badge">نفد</span>' : ''}
