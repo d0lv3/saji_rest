@@ -123,6 +123,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Inline SVG alignment */
+.admin-tab svg,
+.order-action-btn svg,
+.orders-column h3 svg,
+.field-label svg,
+.item-notes svg,
+.reset-completed-btn svg,
+.offer-toggle-btn svg,
+.offer-delete-btn svg {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
