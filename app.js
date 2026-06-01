@@ -723,6 +723,7 @@
 
     sendPushNotification(serverOrder.id, 'new_order');
 
+    updateFloatingOrderStatus('pending');
     showScreen('#trackingScreen');
     $('#trackingOrderId').textContent = 'رقم الطلب: ' + serverOrder.id;
     hideOrderCompleted();
@@ -875,6 +876,7 @@
       if (status === 'cooking') dot.classList.add('cooking');
       else if (status === 'delivery') dot.classList.add('delivery');
       else if (status === 'done') dot.classList.add('done');
+      else if (status === 'cancelled') dot.classList.add('cancelled');
     }
   }
 
@@ -908,15 +910,20 @@
             clearTrackingStateKeepScreen();
             return;
           }
+          if (result.status === 'done') {
+            clearTrackingState();
+            return;
+          }
           lastTrackedStatus = result.status;
           updateFloatingOrderStatus(result.status);
           updateFloatingOrderCard();
         } else {
           clearTrackingState();
         }
-      }).catch(() => {});
+      }).catch(() => {
+        updateFloatingOrderCard();
+      });
       startTrackingRealtime();
-      updateFloatingOrderCard();
     }
 
     $('#floatingOrderCard').addEventListener('click', () => {
