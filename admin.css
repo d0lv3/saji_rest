@@ -713,7 +713,7 @@ body {
 
 .menu-table-header {
   display: grid;
-  grid-template-columns: 3fr 1fr 1fr 100px;
+  grid-template-columns: 3fr 1fr 1fr 120px;
   padding: 14px 20px;
   background: var(--bg-elevated);
   font-size: 12px;
@@ -726,7 +726,7 @@ body {
 
 .menu-table-row {
   display: grid;
-  grid-template-columns: 3fr 1fr 1fr 100px;
+  grid-template-columns: 3fr 1fr 1fr 120px;
   padding: 14px 20px;
   align-items: center;
   border-top: 1px solid var(--border-subtle);
@@ -735,6 +735,116 @@ body {
 }
 .menu-table-row:first-child { border-top: none; }
 .menu-table-row:hover { background: var(--bg-card-hover); }
+
+/* Editing mode */
+.menu-table-row.editing {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--primary-subtle);
+  border-right: 3px solid var(--primary);
+}
+.edit-row-fields {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.edit-field {
+  flex: 1;
+  min-width: 140px;
+}
+.edit-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.edit-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.edit-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.edit-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.edit-save-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.edit-save-btn:hover {
+  background: var(--primary-hover);
+}
+.edit-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.edit-cancel-btn {
+  padding: 8px 16px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.edit-cancel-btn:hover {
+  border-color: var(--text-muted);
+}
+
+/* Edit button in normal row */
+.menu-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.edit-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.edit-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
 
 .menu-table-row .item-name {
   font-weight: 600;
@@ -865,56 +975,44 @@ body {
   /* Menu table mobile — card layout */
   .menu-table-header { display: none; }
 
-  .menu-table-row {
+  .menu-table-row:not(.editing) {
     grid-template-columns: 1fr;
     padding: 14px 16px;
     gap: 8px;
     font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
-  .menu-table-row > div:first-child {
+  .menu-table-row:not(.editing) > div:first-child {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    width: 100%;
   }
 
   .menu-table-row .item-name {
     font-size: 14px;
   }
 
-  .menu-table-row .item-cat {
-    font-size: 11px;
-    background: var(--bg-elevated);
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-  }
-
-  .menu-table-row .item-price-cell {
-    font-size: 14px;
-  }
-
-  .menu-table-row > div:first-child::after {
-    content: none;
-  }
-
-  /* Arrange price and toggle on same line */
-  .menu-table-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .menu-table-row > div:first-child {
-    width: 100%;
-  }
-
-  .menu-table-row .item-cat {
+  .menu-table-row:not(.editing) .item-cat {
     display: none;
   }
 
   .menu-table-row .item-price-cell {
+    font-size: 14px;
     flex: 1;
   }
+
+  .menu-table-row.editing {
+    padding: 14px 16px;
+  }
+  .edit-row-fields {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .edit-field { min-width: 100%; }
 
   .menu-table-row .toggle-switch {
     width: 42px;

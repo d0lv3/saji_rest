@@ -252,6 +252,28 @@ async function toggleStock(itemId, inStock) {
   return { success: !error };
 }
 
+async function updateMenuItem(itemId, updates) {
+  const dbUpdates = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.price !== undefined) dbUpdates.price = updates.price;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
+
+  const { error } = await _supabase
+    .from('menu_items')
+    .update(dbUpdates)
+    .eq('id', itemId);
+
+  if (!error) {
+    _menuCache = _menuCache.map(function (item) {
+      if (item.id === itemId) return Object.assign({}, item, updates);
+      return item;
+    });
+    saveMenuToStorage(_menuCache);
+  }
+  return { success: !error };
+}
+
 function invalidateMenuCache() {
   localStorage.removeItem(MENU_STORAGE_KEY);
 }
