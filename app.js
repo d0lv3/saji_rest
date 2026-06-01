@@ -664,32 +664,48 @@
     submitBtn.disabled = true;
     submitBtn.textContent = '...جاري الإرسال';
 
-    const subtotal = getCartSubtotal();
-    const deliveryFee = getDeliveryFee(subtotal);
-    const discount = getDiscount(subtotal);
-    const total = subtotal + deliveryFee - discount;
+    // Build items for server-side validation (prices are looked up server-side)
+    const orderItems = cart.map(function (c) {
+      return {
+        item_id: c.itemId,
+        qty: c.qty,
+        addon_ids: (c.addons || []).map(function (a) { return a.id; }),
+        notes: c.notes || '',
+      };
+    });
 
-    const order = {
-      id: generateOrderId(),
-      items: cart.map(c => ({
-        name: c.name, qty: c.qty, unitPrice: c.unitPrice,
-        addons: c.addonNames, notes: c.notes,
-      })),
-      subtotal, deliveryFee: deliveryFee, discount,
-      promoCode: appliedPromo ? appliedPromo.code : null,
-      total, phone, address,
+    const result = await saveOrder({
       name: name,
-      status: 'pending',
-      timestamp: Date.now(),
-    };
+      phone: phone,
+      address: address,
+      items: orderItems,
+      promoCode: appliedPromo ? appliedPromo.code : null,
+    });
 
-    const result = await saveOrder(order);
-    console.log('Order submit result:', result);
+    if (!result.success) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'تأكيد الطلب';
+      var errMsg = result.error || '';
+      if (errMsg.indexOf('item_unavailable') !== -1) {
+        alert('بعض الأصناف لم تعد متوفرة. يرجى تحديث السلة');
+      } else if (errMsg.indexOf('offer_expired') !== -1) {
+        alert('العرض انتهت صلاحيته. يرجى إزالته من السلة');
+      } else if (errMsg.indexOf('minimum_not_met') !== -1) {
+        alert('لم يتم تحقيق الحد الأدنى للطلب');
+      } else {
+        alert('حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى');
+      }
+      console.error('Order submit failed:', errMsg);
+      return;
+    }
 
-    currentOrderId = order.id;
+    var serverOrder = result.data;
+    console.log('Order created:', serverOrder);
+
+    currentOrderId = serverOrder.id;
     hasActiveOrder = true;
     lastTrackedStatus = 'pending';
-    localStorage.setItem('saji_active_order', order.id);
+    localStorage.setItem('saji_active_order', serverOrder.id);
 
     localStorage.setItem('saji_customer', JSON.stringify({ phone, address, name }));
     cart = [];
@@ -702,13 +718,13 @@
 
     const fcmToken = getFCMToken();
     if (fcmToken) {
-      savePushToken(order.id, fcmToken).catch(() => {});
+      savePushToken(serverOrder.id, fcmToken).catch(function () {});
     }
 
-    sendPushNotification(order.id, 'new_order');
+    sendPushNotification(serverOrder.id, 'new_order');
 
     showScreen('#trackingScreen');
-    $('#trackingOrderId').textContent = `رقم الطلب: ${order.id}`;
+    $('#trackingOrderId').textContent = 'رقم الطلب: ' + serverOrder.id;
     hideOrderCompleted();
     updateTrackingTimeline('pending');
     startTrackingRealtime();
