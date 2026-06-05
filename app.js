@@ -260,9 +260,21 @@
     }
 
     await loadAndRenderOffers();
+    setupSpecialOfferButtons();
 
     const loader = document.getElementById('loadingScreen');
     if (loader) loader.classList.add('hidden');
+  }
+
+  // ─── Special Offer Banner Buttons ─────────────────────────────
+  function setupSpecialOfferButtons() {
+    document.querySelectorAll('.special-offer-order-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (hasActiveOrder) return;
+        var item = menuData.find(function (i) { return i.id === btn.dataset.itemId; });
+        if (item && item.inStock) openItemModal(item);
+      });
+    });
   }
 
   function renderItemCard(item) {
