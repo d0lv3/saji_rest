@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1080">
+  <title>تحميل تطبيق صاجي — آيفون</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+      position: relative;
+      direction: rtl;
+    }
+
+    /* ── Decorative Background Elements ── */
+    .bg-glow {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.25;
+      pointer-events: none;
+    }
+    .bg-glow-1 {
+      width: 500px; height: 500px;
+      background: #007AFF;
+      top: -120px; left: -100px;
+    }
+    .bg-glow-2 {
+      width: 400px; height: 400px;
+      background: #5856D6;
+      bottom: -80px; right: -60px;
+      opacity: 0.15;
+    }
+    .bg-glow-3 {
+      width: 300px; height: 300px;
+      background: #FF6B00;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.1;
+    }
+
+    /* Subtle grid pattern */
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    /* ── Main Layout ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 60px 70px 50px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 16px rgba(255,107,0,0.4));
+    }
+    .brand-name {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .platform-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 122, 255, 0.15);
+      border: 1px solid rgba(0, 122, 255, 0.25);
+      border-radius: 50px;
+      padding: 10px 22px 10px 18px;
+    }
+    .platform-badge svg {
+      flex-shrink: 0;
+    }
+    .platform-badge span {
+      font-size: 18px;
+      font-weight: 700;
+      color: #5AC8FA;
+    }
+
+    /* ── Title Area ── */
+    .title-section {
+      text-align: center;
+      margin-bottom: 38px;
+    }
+    .title {
+      font-size: 44px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.3;
+      margin-bottom: 10px;
+    }
+    .title .highlight {
+      color: #FF6B00;
+    }
+    .subtitle {
+      font-size: 19px;
+      color: rgba(255,255,255,0.55);
+      font-weight: 400;
+    }
+    .safari-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,122,255,0.12);
+      border: 1px solid rgba(0,122,255,0.2);
+      border-radius: 10px;
+      padding: 8px 18px;
+      margin-top: 12px;
+      font-size: 15px;
+      color: #5AC8FA;
+      font-weight: 600;
+    }
+
+    /* ── Steps Container ── */
+    .steps {
+      display: flex;
+      gap: 24px;
+      flex: 1;
+      direction: rtl;
+    }
+
+    .step {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 32px 24px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+
+    .step-number {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+      color: #fff;
+      font-size: 24px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,122,255,0.4);
+    }
+
+    .step-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .step h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .step p {
+      font-size: 15px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.6;
+    }
+
+    /* Arrow connectors */
+    .step-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 32px;
+    }
+
+    /* ── Footer / URL ── */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 36px;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .url-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1.5px solid rgba(255,107,0,0.3);
+      border-radius: 14px;
+      padding: 14px 28px;
+    }
+    .url-box svg {
+      flex-shrink: 0;
+    }
+    .url-box span {
+      font-size: 24px;
+      font-weight: 700;
+      color: #FF6B00;
+      direction: ltr;
+      letter-spacing: 0.5px;
+    }
+    .footer-note {
+      font-size: 15px;
+      color: rgba(255,255,255,0.35);
+      font-weight: 400;
+    }
+
+    /* iOS share icon inline */
+    .ios-share-icon {
+      display: inline-block;
+      vertical-align: middle;
+      margin: 0 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Decorative BG -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+  <div class="bg-grid"></div>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-right">
+        <img src="../asstes/saji_app_logo.png" alt="صاجي" class="logo-img">
+        <span class="brand-name">مطعم صاجي</span>
+      </div>
+      <div class="platform-badge">
+        <!-- Apple Icon -->
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#5AC8FA">
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+        </svg>
+        <span>آيفون</span>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div class="title-section">
+      <h1 class="title">كيف تحمّل تطبيق <span class="highlight">صاجي؟</span></h1>
+      <p class="subtitle">٣ خطوات بسيطة وتطبيقك جاهز!</p>
+      <div class="safari-note">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5AC8FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        يجب فتح الرابط من متصفح Safari
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="steps">
+      <!-- Step 1 -->
+      <div class="step">
+        <div class="step-number">١</div>
+        <div class="step-icon">
+          <!-- Safari compass icon -->
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="rgba(0,122,255,0.2)" stroke="#007AFF"/>
+          </svg>
+        </div>
+        <h3>افتح الرابط في Safari</h3>
+        <p>افتح Safari وادخل على<br><strong style="color:#FF6B00; direction:ltr; display:inline-block;">rest.live</strong></p>
+      </div>
+
+      <!-- Arrow -->
+      <div class="step-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step">
+        <div class="step-number">٢</div>
+        <div class="step-icon">
+          <!-- iOS Share icon -->
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <h3>اضغط على المشاركة</h3>
+        <p>اضغط على أيقونة
+          <svg class="ios-share-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          <br>في شريط Safari السفلي</p>
+      </div>
+
+      <!-- Arrow -->
+      <div class="step-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step">
+        <div class="step-number">٣</div>
+        <div class="step-icon">
+          <!-- Plus square / Add icon -->
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="4"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+        </div>
+        <h3>إضافة للشاشة الرئيسية</h3>
+        <p>اختر <strong style="color:#fff;">"إضافة إلى<br>الشاشة الرئيسية"</strong><br>ثم اضغط <strong style="color:#fff;">"إضافة"</strong></p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="url-box">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+        </svg>
+        <span>rest.live</span>
+      </div>
+      <span class="footer-note">مجاني • بدون آب ستور</span>
+    </div>
+  </div>
+</body>
+</html>
