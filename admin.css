@@ -359,44 +359,7 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Toggle Switch Component */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 42px;
-  height: 24px;
-  flex-shrink: 0;
-}
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.toggle-slider {
-  position: absolute;
-  inset: 0;
-  background: #ccc;
-  border-radius: 24px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  left: 3px;
-  bottom: 3px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.3s;
-}
-.toggle-switch input:checked + .toggle-slider {
-  background: var(--primary);
-}
-.toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(18px);
-}
+/* Removed duplicate toggle-switch block */
 
 /* ─── Admin Navbar ─────────────────────────────── */
 .admin-navbar {
@@ -1178,6 +1141,54 @@ body {
 .cor-total {
   color: var(--primary);
   font-weight: 700;
+}
+.cor-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.status-done {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.status-cancelled {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.cor-customer-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.cor-customer-info svg {
+  color: var(--text-muted);
+}
+.cor-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.cor-delete-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+.cor-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 900px) {
