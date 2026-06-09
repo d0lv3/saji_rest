@@ -131,7 +131,6 @@ const FALLBACK_MENU = [
   {id:'pepsi',name:'كولا',description:'مشروب غازي بارد',category:'المشاريب',price:500,image:'asstes/dishes_assets/cola.png',inStock:true,addons:[]},
   {id:'grape_juice',name:'عصير زبيب',description:'عصير زبيب طبيعي',category:'المشاريب',price:1000,image:'asstes/dishes_assets/brjuice.png',inStock:true,addons:[]},
   {id:'special_family_offer',name:'العرض العائلي (12 قطعة صاج دجاج +8 قطع برگر لحم +بطل كولا )',description:'12 قطعة صاج دجاج + 8 قطع برگر لحم + بطل كولا',category:'عروض خاصة',price:10000,image:'asstes/dishes_assets/special_plate1.png',inStock:true,addons:[]},
-  {id:'special_rizo_offer',name:'عرض الريزو (2 ريزو شاورما +بطل ببسي )',description:'2 ريزو شاورما + بطل ببسي',category:'عروض خاصة',price:6000,image:'asstes/dishes_assets/special_plate2.png',inStock:true,addons:[]},
 ];
 
 // ─── Local Cache ─────────────────────────────────────────────
@@ -429,6 +428,14 @@ async function clearCompletedOrders() {
     .from('orders')
     .delete()
     .in('status', ['done', 'cancelled']);
+  return { success: !error };
+}
+
+async function deleteCompletedOrder(orderId) {
+  const { error } = await _supabase
+    .from('orders')
+    .delete()
+    .eq('id', orderId);
   return { success: !error };
 }
 

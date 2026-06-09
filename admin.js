@@ -250,21 +250,44 @@
       const time = getTimeString(order.timestamp);
       const date = getDateString(order.timestamp);
       const itemsSummary = order.items.map(i => `${escapeHtml(i.name)} ×${parseInt(i.qty) || 0}`).join('، ');
+      const statusClass = order.status === 'done' ? 'status-done' : 'status-cancelled';
+      const statusText = order.status === 'done' ? 'مكتمل' : 'ملغي';
+      const customerInfo = `${escapeHtml(order.name || '')} - ${escapeHtml(order.phone || '')}`;
       return `
         <div class="completed-order-row">
           <div class="cor-header">
-            <span class="cor-id">${escapeHtml(order.id)}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="cor-id">${escapeHtml(order.id)}</span>
+              <span class="cor-status ${statusClass}">${statusText}</span>
+            </div>
             <span class="cor-time">${time} · ${date}</span>
+          </div>
+          <div class="cor-customer-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            ${customerInfo}
           </div>
           <div class="cor-items">${itemsSummary}</div>
           <div class="cor-footer">
-            <span>${escapeHtml(order.name || order.phone)}</span>
             <span class="cor-total">${formatPrice(order.total)}</span>
+            <button class="cor-delete-btn" onclick="window._deleteCompletedOrder('${escapeHtml(order.id)}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              حذف
+            </button>
           </div>
         </div>
       `;
     }).join('');
   }
+
+  window._deleteCompletedOrder = async function(orderId) {
+    if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
+    const btn = event.currentTarget;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '...جاري الحذف';
+    await deleteCompletedOrder(orderId);
+    await renderCompletedOrders();
+  };
 
   // Reset completed orders
   $('#resetCompletedBtn').addEventListener('click', async () => {
