@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="asstes/saji_app_logo.png">
+  <link rel="apple-touch-icon" href="assets/saji_app_logo.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
 <!-- ═══ LOADING SCREEN ═══ -->
 <div class="loading-screen" id="loadingScreen">
   <div class="loading-content">
-    <img src="asstes/saji_app_logo.png" alt="loading" class="loading-shawarma">
+    <img src="assets/saji_app_logo.png" alt="loading" class="loading-shawarma">
     <p class="loading-text">جاري تحميل القائمة...</p>
     <div class="loading-dots"><span></span><span></span><span></span></div>
   </div>
@@ -40,7 +40,7 @@
 
     <!-- Header -->
     <header class="app-header">
-      <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="logo">
+      <img src="assets/saji_logo_bg_erased.png" alt="صاجي" class="logo">
       <div class="brand"></div>
       <div class="header-status">مفتوح</div>
     </header>
@@ -56,7 +56,7 @@
       <!-- Special Offer 1: Family Offer -->
       <div class="special-offer-banner">
         <div class="special-offer-img-wrap">
-          <img src="asstes/dishes_assets/special_plate1.png" alt="العرض العائلي" class="special-offer-img">
+          <img src="assets/dishes_assets/special_plate1.png" alt="العرض العائلي" class="special-offer-img">
           <div class="special-offer-badge-float"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg> عرض خاص</div>
         </div>
         <div class="special-offer-body">
@@ -307,7 +307,7 @@
 <!-- ═══ FULL-SCREEN MOBILE INSTALL OVERLAY ═══ -->
 <div class="pwa-gate-overlay" id="pwaGateOverlay">
   <div class="pwa-gate-content">
-    <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="pwa-gate-logo">
+    <img src="assets/saji_logo_bg_erased.png" alt="صاجي" class="pwa-gate-logo">
     <h2 class="pwa-gate-title">مطعم صاجي</h2>
     <p class="pwa-gate-subtitle">ثبّت التطبيق للحصول على أفضل تجربة</p>
 
@@ -368,8 +368,11 @@ if ('serviceWorker' in navigator) {
   var iosInstructions = document.getElementById('pwaGateIOS');
   var deferredPrompt = null;
 
-  // Already running as PWA — don't show
-  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+  // Already running as PWA, embedded (admin menu preview), or skipped earlier this visit — don't show
+  var skipped = false;
+  try { skipped = sessionStorage.getItem('saji_pwa_gate_skipped') === '1'; } catch (e) {}
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone ||
+      window.self !== window.top || skipped) {
     overlay.style.display = 'none';
     return;
   }
@@ -411,6 +414,7 @@ if ('serviceWorker' in navigator) {
   });
 
   skipBtn.addEventListener('click', function() {
+    try { sessionStorage.setItem('saji_pwa_gate_skipped', '1'); } catch (e) {}
     overlay.classList.add('pwa-gate-hiding');
     setTimeout(function() {
       overlay.style.display = 'none';

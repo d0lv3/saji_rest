@@ -1,0 +1,19 @@
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+
+# Local env / secrets
+.env
+.env.*
+
+# Vercel
+.vercel/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+node_modules/

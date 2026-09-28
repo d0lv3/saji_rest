@@ -1,17 +1,29 @@
 -- ═══════════════════════════════════════════════════════════════
--- security-fixes.sql — Server-side order validation & privacy
--- Run this in the Supabase SQL Editor
+-- 04_order_hardening.sql — run BEFORE deploying the new site code
+--
+-- Everything here is additive: the currently deployed site keeps
+-- working after it runs.
+--
+--   1. create_order: rejects orders while the restaurant is closed,
+--      validates phone/address, caps field lengths, and limits each
+--      phone number to 5 orders per 10 minutes
+--   2. save_push_token: customers can only register a device for an
+--      order they hold the access token for
+--   3. Order status is broadcast on a channel named after the order's
+--      access token, so customers can track without reading `orders`
+--   4. admin_notified: lets the send-notification function alert the
+--      admin only once per new order
 -- ═══════════════════════════════════════════════════════════════
 
 -- ───────────────────────────────────────────────────────────────
--- 1. Add access_token column to orders (for #1 order privacy)
+-- 1. Columns & indexes
 -- ───────────────────────────────────────────────────────────────
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS access_token TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notified BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_orders_phone_created_at ON orders(phone, created_at DESC);
 
 -- ───────────────────────────────────────────────────────────────
--- 2. Atomic order creation with server-side validation
---    Fixes: #2 item validation, #3 server-side totals,
---           #9 atomic insert, #10 promo enforcement
+-- 2. create_order with input guards (replaces the version from 03)
 -- ───────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION create_order(
   p_customer_name TEXT,
@@ -40,7 +52,43 @@ DECLARE
   v_unit_price      INTEGER;
   v_item_name       TEXT;
   v_addon_names     JSONB;
+  v_is_open         BOOLEAN;
+  v_recent_orders   INTEGER;
+  v_name            TEXT := LEFT(BTRIM(COALESCE(p_customer_name, '')), 100);
+  v_phone           TEXT := BTRIM(COALESCE(p_phone, ''));
+  v_address         TEXT := LEFT(BTRIM(COALESCE(p_address, '')), 500);
+  v_promo_code      TEXT := NULLIF(LEFT(BTRIM(COALESCE(p_promo_code, '')), 50), '');
 BEGIN
+  -- ── Phase 0: Guards ──────────────────────────────────────
+  -- Closed restaurant (a missing setting counts as open)
+  SELECT (value->>'isOpen')::BOOLEAN INTO v_is_open
+    FROM settings
+   WHERE key = 'restaurant_status';
+  IF v_is_open = false THEN
+    RAISE EXCEPTION 'restaurant_closed';
+  END IF;
+
+  -- Same rules the checkout form already enforces
+  IF v_phone !~ '^07[578][0-9]{8}$' THEN
+    RAISE EXCEPTION 'invalid_phone';
+  END IF;
+  IF v_address = '' THEN
+    RAISE EXCEPTION 'invalid_address';
+  END IF;
+  IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array'
+     OR jsonb_array_length(p_items) = 0 OR jsonb_array_length(p_items) > 50 THEN
+    RAISE EXCEPTION 'invalid_items';
+  END IF;
+
+  -- Rate limit per phone number
+  SELECT COUNT(*) INTO v_recent_orders
+    FROM orders
+   WHERE phone = v_phone
+     AND created_at > NOW() - INTERVAL '10 minutes';
+  IF v_recent_orders >= 5 THEN
+    RAISE EXCEPTION 'rate_limited';
+  END IF;
+
   -- ── Generate secure IDs ──────────────────────────────────
   v_order_id     := 'ORD-' || UPPER(LEFT(REPLACE(gen_random_uuid()::TEXT, '-', ''), 12));
   v_access_token := REPLACE(gen_random_uuid()::TEXT || gen_random_uuid()::TEXT, '-', '');
@@ -127,7 +175,7 @@ BEGIN
         'qty',        v_rec.qty,
         'unit_price', v_unit_price,
         'addons',     v_addon_names,
-        'notes',      COALESCE(v_rec.notes, '')
+        'notes',      LEFT(COALESCE(v_rec.notes, ''), 500)
       )
     );
   END LOOP;
@@ -135,12 +183,12 @@ BEGIN
   -- ── Phase 2: Delivery fee (mirrors client constants) ─────
   v_delivery_fee := CASE WHEN v_subtotal >= 5000 THEN 0 ELSE 1000 END;
 
-  -- ── Phase 3: Server-side promo code validation (#10) ─────
-  IF p_promo_code IS NOT NULL AND p_promo_code != '' THEN
+  -- ── Phase 3: Server-side promo code validation ───────────
+  IF v_promo_code IS NOT NULL THEN
     BEGIN
       SELECT * INTO v_promo_row
         FROM promo_codes
-       WHERE code = p_promo_code AND active = true;
+       WHERE code = v_promo_code AND active = true;
 
       IF FOUND THEN
         IF v_promo_row.type = 'percent' THEN
@@ -167,8 +215,8 @@ BEGIN
     (id, customer_name, phone, address, status,
      subtotal, delivery_fee, discount, promo_code, total, access_token)
   VALUES
-    (v_order_id, p_customer_name, p_phone, p_address, 'pending',
-     v_subtotal, v_delivery_fee, v_discount, p_promo_code, v_total, v_access_token);
+    (v_order_id, v_name, v_phone, v_address, 'pending',
+     v_subtotal, v_delivery_fee, v_discount, v_promo_code, v_total, v_access_token);
 
   INSERT INTO order_items (order_id, item_name, qty, unit_price, addons, notes)
   SELECT v_order_id,
@@ -191,77 +239,95 @@ BEGIN
 END;
 $$;
 
--- ───────────────────────────────────────────────────────────────
--- 3. Secure order status lookup (#1 order privacy)
---    Requires the access_token that was returned at creation time.
---    Falls back gracefully for old orders (token = NULL).
--- ───────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION get_order_status(
-  p_order_id     TEXT,
-  p_access_token TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_order RECORD;
-BEGIN
-  SELECT status, cancel_note INTO v_order
-    FROM orders
-   WHERE id = p_order_id
-     AND access_token = p_access_token;
-
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('status', 'not_found');
-  END IF;
-
-  RETURN jsonb_build_object(
-    'status',      v_order.status,
-    'cancel_note', COALESCE(v_order.cancel_note, '')
-  );
-END;
-$$;
-
--- ───────────────────────────────────────────────────────────────
--- 4. Grant execute permissions
--- ───────────────────────────────────────────────────────────────
 GRANT EXECUTE ON FUNCTION create_order(TEXT, TEXT, TEXT, JSONB, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION create_order(TEXT, TEXT, TEXT, JSONB, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_order_status(TEXT, TEXT) TO anon;
-GRANT EXECUTE ON FUNCTION get_order_status(TEXT, TEXT) TO authenticated;
 
 -- ───────────────────────────────────────────────────────────────
--- 5. Push tokens: deduplicate + add unique constraint
+-- 3. Customer push token registration
 -- ───────────────────────────────────────────────────────────────
-DELETE FROM push_tokens a USING push_tokens b
- WHERE a.id > b.id
-   AND a.order_id  = b.order_id
-   AND a.fcm_token = b.fcm_token;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'push_tokens_order_fcm_unique'
   ) THEN
+    DELETE FROM push_tokens a USING push_tokens b
+     WHERE a.id > b.id
+       AND a.order_id  = b.order_id
+       AND a.fcm_token = b.fcm_token;
     ALTER TABLE push_tokens
       ADD CONSTRAINT push_tokens_order_fcm_unique UNIQUE (order_id, fcm_token);
   END IF;
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION save_push_token(
+  p_order_id     TEXT,
+  p_access_token TEXT,
+  p_fcm_token    TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_fcm_token IS NULL OR LENGTH(p_fcm_token) = 0 OR LENGTH(p_fcm_token) > 4096 THEN
+    RETURN false;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM orders
+     WHERE id = p_order_id
+       AND access_token = p_access_token
+  ) THEN
+    RETURN false;
+  END IF;
+
+  INSERT INTO push_tokens (order_id, fcm_token)
+  VALUES (p_order_id, p_fcm_token)
+  ON CONFLICT (order_id, fcm_token) DO NOTHING;
+
+  RETURN true;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION save_push_token(TEXT, TEXT, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION save_push_token(TEXT, TEXT, TEXT) TO authenticated;
+
 -- ───────────────────────────────────────────────────────────────
--- 6. (Optional) Lock down direct anon INSERT on orders/order_items
---    The create_order function (SECURITY DEFINER) bypasses RLS,
---    so it still works. This prevents clients from inserting
---    orders with fabricated totals.
---
---    Check your current policies first:
---      SELECT policyname, cmd, roles FROM pg_policies
---       WHERE tablename IN ('orders','order_items');
---
---    Then drop the anon INSERT policies, for example:
---      DROP POLICY "allow anon insert" ON orders;
---      DROP POLICY "allow anon insert" ON order_items;
+-- 4. Broadcast status changes to the customer's private topic
+--    Topic: 'order-' || access_token (only the customer knows it).
+--    Failures are swallowed so a Realtime hiccup can never block
+--    the admin from updating an order.
 -- ───────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION broadcast_order_status()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.access_token IS NOT NULL AND NEW.status IS DISTINCT FROM OLD.status THEN
+    BEGIN
+      PERFORM realtime.send(
+        jsonb_build_object(
+          'status',      NEW.status,
+          'cancel_note', COALESCE(NEW.cancel_note, '')
+        ),
+        'status',
+        'order-' || NEW.access_token,
+        false
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'broadcast_order_status failed: %', SQLERRM;
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS orders_broadcast_status ON orders;
+CREATE TRIGGER orders_broadcast_status
+  AFTER UPDATE OF status ON orders
+  FOR EACH ROW
+  EXECUTE FUNCTION broadcast_order_status();

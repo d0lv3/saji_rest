@@ -35,17 +35,25 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 // ─── Firebase Messaging Setup ────────────────────────────────
 let _fcmToken = null;
+let _fcmForegroundListener = false;
 
-async function initFirebaseMessaging() {
+// options.askPermission === false only picks up an existing grant and never
+// shows the browser prompt (used on page load).
+async function initFirebaseMessaging(options) {
+  const askPermission = !options || options.askPermission !== false;
   try {
-    if (typeof firebase === 'undefined' || !firebase.messaging) {
-      console.warn('Firebase SDK not loaded');
+    if (typeof firebase === 'undefined' || !firebase.messaging || !('Notification' in window)) {
+      console.warn('Firebase SDK or notifications not available');
       return null;
     }
+    if (_fcmToken) return _fcmToken;
+    if (!askPermission && Notification.permission !== 'granted') return null;
 
-    firebase.initializeApp(FIREBASE_CONFIG);
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     const messaging = firebase.messaging();
 
+    // Keep this the first await: iOS only shows the prompt when it is
+    // requested straight from a tap, before any other async work.
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Notification permission denied');
@@ -60,16 +68,19 @@ async function initFirebaseMessaging() {
     });
     console.debug('FCM token obtained');
 
-    messaging.onMessage((payload) => {
-      const title = payload.notification?.title || 'مطعم صاجي';
-      const body = payload.notification?.body || '';
-      swReg.showNotification(title, {
-        body: body,
-        icon: 'asstes/saji_app_logo.png',
-        tag: 'saji-order-fg-' + Date.now(),
-        vibrate: [200, 100, 200],
+    if (!_fcmForegroundListener) {
+      _fcmForegroundListener = true;
+      messaging.onMessage((payload) => {
+        const title = payload.notification?.title || 'مطعم صاجي';
+        const body = payload.notification?.body || '';
+        swReg.showNotification(title, {
+          body: body,
+          icon: 'assets/saji_app_logo.png',
+          tag: 'saji-order-fg-' + Date.now(),
+          vibrate: [200, 100, 200],
+        });
       });
-    });
+    }
 
     return _fcmToken;
   } catch (err) {
@@ -83,11 +94,28 @@ function getFCMToken() {
 }
 
 async function savePushToken(orderId, token) {
-  if (!token) return;
-  const { error } = await _supabase
-    .from('push_tokens')
-    .upsert({ order_id: orderId, fcm_token: token }, { onConflict: 'order_id,fcm_token' });
-  return { success: !error };
+  if (!token) return { success: false };
+
+  // The signed-in admin registers its devices directly
+  if (orderId === 'ADMIN') {
+    const { error } = await _supabase
+      .from('push_tokens')
+      .upsert(
+        { order_id: 'ADMIN', fcm_token: token },
+        { onConflict: 'order_id,fcm_token', ignoreDuplicates: true }
+      );
+    return { success: !error };
+  }
+
+  // Customers prove they placed the order with its access token
+  const accessToken = getOrderAccessToken(orderId);
+  if (!accessToken) return { success: false };
+  const { data, error } = await _supabase.rpc('save_push_token', {
+    p_order_id: orderId,
+    p_access_token: accessToken,
+    p_fcm_token: token,
+  });
+  return { success: !error && data === true };
 }
 
 // ─── Constants ───────────────────────────────────────────────
@@ -98,39 +126,43 @@ function getDeliveryFee(subtotal) {
   return subtotal < FREE_DELIVERY_THRESHOLD ? DELIVERY_FEE_AMOUNT : 0;
 }
 const MIN_ORDER = 3000;
-const CATEGORIES = ['الصاج', 'الكص', 'البركر', 'الريزو', 'الفنكر', 'المشاريب'];
-const CATEGORY_ICONS = {
-  'الصاج': '🫓',
-  'الكص': '🌯',
-  'البركر': '🍔',
-  'الريزو': '🍚',
-  'الفنكر': '🍟',
-  'المشاريب': '🥤',
-};
+const ORDER_STATUSES = ['pending', 'cooking', 'delivery', 'done', 'cancelled'];
+const MENU_IMAGES_BUCKET = 'menu-images';
+const DEFAULT_ITEM_ICON = '🍽️';
+
+// Used until the admin saves a list (settings → "categories")
+const DEFAULT_CATEGORIES = [
+  { name: 'الصاج', icon: '🫓' },
+  { name: 'الكص', icon: '🌯' },
+  { name: 'البركر', icon: '🍔' },
+  { name: 'الريزو', icon: '🍚' },
+  { name: 'الفنكر', icon: '🍟' },
+  { name: 'المشاريب', icon: '🥤' },
+];
 
 // ─── Fallback Menu ──────────────────────────────────────────
 const FALLBACK_MENU = [
-  {id:'chicken_saj',name:'صاجية دجاج',description:'صاجية دجاج طازجة',category:'الصاج',price:2500,image:'asstes/dishes_assets/chiecken_saj.png',inStock:true,addons:[]},
-  {id:'meat_saj',name:'صاجية لحم',description:'صاجية لحم طازجة',category:'الصاج',price:3000,image:'asstes/dishes_assets/meat_saj.png',inStock:true,addons:[]},
-  {id:'chicken_saj_plate',name:'وجبة عربي صاج دجاج',description:'وجبة عربي صاج دجاج مع مخللات',category:'الصاج',price:3000,image:'asstes/dishes_assets/chicken_saj_plate.png',inStock:true,addons:[]},
-  {id:'meat_saj_plate',name:'وجبة عربي صاج لحم',description:'وجبة عربي صاج لحم مع مخللات',category:'الصاج',price:4000,image:'asstes/dishes_assets/meat_saj_plate.png',inStock:true,addons:[]},
-  {id:'saj_burger',name:'صاج بركر',description:'صاج بركر مميز',category:'الصاج',price:2500,image:'asstes/dishes_assets/saj_burger.png',inStock:true,addons:[]},
-  {id:'chicken_kass_wrap',name:'لفة حجري كص دجاج',description:'لفة حجري كص دجاج',category:'الكص',price:2000,image:'asstes/dishes_assets/hajiri_chicken_kass.png',inStock:true,addons:[]},
-  {id:'meat_kass_wrap',name:'لفة حجري كص لحم',description:'لفة حجري كص لحم',category:'الكص',price:3000,image:'asstes/dishes_assets/hajiri_meat_kass.png',inStock:true,addons:[]},
-  {id:'chicken_kass_plate',name:'طبق كص دجاج',description:'طبق كص دجاج مع أرز ومخللات',category:'الكص',price:5000,image:'asstes/dishes_assets/chicken_kass_plate.png',inStock:true,addons:[]},
-  {id:'meat_kass_plate',name:'طبق كص لحم',description:'طبق كص لحم مع أرز ومخللات',category:'الكص',price:6000,image:'asstes/dishes_assets/meat_kass_plate.png',inStock:true,addons:[]},
-  {id:'meat_burger',name:'بركر لحم عراقي كلاسيك',description:'بركر لحم عراقي كلاسيكي',category:'البركر',price:2500,image:'asstes/dishes_assets/meat_burger.png',inStock:true,addons:[]},
-  {id:'meat_burger_cheese',name:'بركر لحم بالجبن',description:'بركر لحم مع جبن',category:'البركر',price:3000,image:'asstes/dishes_assets/meat_burger_w_cheese.png',inStock:true,addons:[]},
-  {id:'kass_chicken_rizo',name:'ريزو كص دجاج',description:'ريزو كص دجاج',category:'الريزو',price:3000,image:'asstes/dishes_assets/kass_chicken_rizo.png',inStock:true,addons:[]},
-  {id:'kass_meat_rizo',name:'ريزو كص لحم',description:'ريزو كص لحم',category:'الريزو',price:4000,image:'asstes/dishes_assets/kass_meat_rizo.png',inStock:true,addons:[]},
-  {id:'fries_small',name:'قدح فنكر صغير',description:'قدح فنكر صغير',category:'الفنكر',price:1000,image:'asstes/dishes_assets/fries.png',inStock:true,addons:[]},
-  {id:'fries_cheese',name:'فنكر بالجبن',description:'فنكر بالجبن',category:'الفنكر',price:1500,image:'asstes/dishes_assets/fries_w_cheese.png',inStock:true,addons:[]},
-  {id:'fries_large',name:'قدح فنكر كبير',description:'قدح فنكر كبير',category:'الفنكر',price:2000,image:'asstes/dishes_assets/fries_plate.png',inStock:true,addons:[]},
-  {id:'fries_large_cheese',name:'قدح فنكر كبير بالجبن',description:'قدح فنكر كبير بالجبن',category:'الفنكر',price:2500,image:'asstes/dishes_assets/fries_plate_w_cheese.jpg',inStock:true,addons:[]},
-  {id:'water',name:'ماء',description:'مياه معدنية',category:'المشاريب',price:250,image:'asstes/dishes_assets/wbottle.png',inStock:true,addons:[]},
-  {id:'pepsi',name:'كولا',description:'مشروب غازي بارد',category:'المشاريب',price:500,image:'asstes/dishes_assets/cola.png',inStock:true,addons:[]},
-  {id:'grape_juice',name:'عصير زبيب',description:'عصير زبيب طبيعي',category:'المشاريب',price:1000,image:'asstes/dishes_assets/brjuice.png',inStock:true,addons:[]},
-  {id:'special_family_offer',name:'العرض العائلي (12 قطعة صاج دجاج +8 قطع برگر لحم +بطل كولا )',description:'12 قطعة صاج دجاج + 8 قطع برگر لحم + بطل كولا',category:'عروض خاصة',price:10000,image:'asstes/dishes_assets/special_plate1.png',inStock:true,addons:[]},
+  {id:'chicken_saj',name:'صاجية دجاج',description:'صاجية دجاج طازجة',category:'الصاج',price:2500,image:'assets/dishes_assets/chiecken_saj.png',inStock:true,addons:[]},
+  {id:'meat_saj',name:'صاجية لحم',description:'صاجية لحم طازجة',category:'الصاج',price:3000,image:'assets/dishes_assets/meat_saj.png',inStock:true,addons:[]},
+  {id:'chicken_saj_plate',name:'وجبة عربي صاج دجاج',description:'وجبة عربي صاج دجاج مع مخللات',category:'الصاج',price:3000,image:'assets/dishes_assets/chicken_saj_plate.png',inStock:true,addons:[]},
+  {id:'meat_saj_plate',name:'وجبة عربي صاج لحم',description:'وجبة عربي صاج لحم مع مخللات',category:'الصاج',price:4000,image:'assets/dishes_assets/meat_saj_plate.png',inStock:true,addons:[]},
+  {id:'saj_burger',name:'صاج بركر',description:'صاج بركر مميز',category:'الصاج',price:2500,image:'assets/dishes_assets/saj_burger.png',inStock:true,addons:[]},
+  {id:'chicken_kass_wrap',name:'لفة حجري كص دجاج',description:'لفة حجري كص دجاج',category:'الكص',price:2000,image:'assets/dishes_assets/hajiri_chicken_kass.png',inStock:true,addons:[]},
+  {id:'meat_kass_wrap',name:'لفة حجري كص لحم',description:'لفة حجري كص لحم',category:'الكص',price:3000,image:'assets/dishes_assets/hajiri_meat_kass.png',inStock:true,addons:[]},
+  {id:'chicken_kass_plate',name:'طبق كص دجاج',description:'طبق كص دجاج مع أرز ومخللات',category:'الكص',price:5000,image:'assets/dishes_assets/chicken_kass_plate.png',inStock:true,addons:[]},
+  {id:'meat_kass_plate',name:'طبق كص لحم',description:'طبق كص لحم مع أرز ومخللات',category:'الكص',price:6000,image:'assets/dishes_assets/meat_kass_plate.png',inStock:true,addons:[]},
+  {id:'meat_burger',name:'بركر لحم عراقي كلاسيك',description:'بركر لحم عراقي كلاسيكي',category:'البركر',price:2500,image:'assets/dishes_assets/meat_burger.png',inStock:true,addons:[]},
+  {id:'meat_burger_cheese',name:'بركر لحم بالجبن',description:'بركر لحم مع جبن',category:'البركر',price:3000,image:'assets/dishes_assets/meat_burger_w_cheese.png',inStock:true,addons:[]},
+  {id:'kass_chicken_rizo',name:'ريزو كص دجاج',description:'ريزو كص دجاج',category:'الريزو',price:3000,image:'assets/dishes_assets/kass_chicken_rizo.png',inStock:true,addons:[]},
+  {id:'kass_meat_rizo',name:'ريزو كص لحم',description:'ريزو كص لحم',category:'الريزو',price:4000,image:'assets/dishes_assets/kass_meat_rizo.png',inStock:true,addons:[]},
+  {id:'fries_small',name:'قدح فنكر صغير',description:'قدح فنكر صغير',category:'الفنكر',price:1000,image:'assets/dishes_assets/fries.png',inStock:true,addons:[]},
+  {id:'fries_cheese',name:'فنكر بالجبن',description:'فنكر بالجبن',category:'الفنكر',price:1500,image:'assets/dishes_assets/fries_w_cheese.png',inStock:true,addons:[]},
+  {id:'fries_large',name:'قدح فنكر كبير',description:'قدح فنكر كبير',category:'الفنكر',price:2000,image:'assets/dishes_assets/fries_plate.png',inStock:true,addons:[]},
+  {id:'fries_large_cheese',name:'قدح فنكر كبير بالجبن',description:'قدح فنكر كبير بالجبن',category:'الفنكر',price:2500,image:'assets/dishes_assets/fries_plate_w_cheese.jpg',inStock:true,addons:[]},
+  {id:'water',name:'ماء',description:'مياه معدنية',category:'المشاريب',price:250,image:'assets/dishes_assets/wbottle.png',inStock:true,addons:[]},
+  {id:'pepsi',name:'كولا',description:'مشروب غازي بارد',category:'المشاريب',price:500,image:'assets/dishes_assets/cola.png',inStock:true,addons:[]},
+  {id:'grape_juice',name:'عصير زبيب',description:'عصير زبيب طبيعي',category:'المشاريب',price:1000,image:'assets/dishes_assets/brjuice.png',inStock:true,addons:[]},
+  {id:'special_family_offer',name:'العرض العائلي (12 قطعة صاج دجاج +8 قطع برگر لحم +بطل كولا )',description:'12 قطعة صاج دجاج + 8 قطع برگر لحم + بطل كولا',category:'عروض خاصة',price:10000,image:'assets/dishes_assets/special_plate1.png',inStock:true,addons:[]},
 ];
 
 // ─── Local Cache ─────────────────────────────────────────────
@@ -181,6 +213,7 @@ function transformMenuItem(row) {
     image: row.image || '',
     inStock: row.in_stock,
     addons: row.addons || [],
+    sortOrder: row.sort_order || 0,
   };
 }
 
@@ -259,6 +292,9 @@ async function updateMenuItem(itemId, updates) {
   if (updates.price !== undefined) dbUpdates.price = updates.price;
   if (updates.description !== undefined) dbUpdates.description = updates.description;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.image !== undefined) dbUpdates.image = updates.image;
+  if (updates.addons !== undefined) dbUpdates.addons = updates.addons;
+  if (updates.inStock !== undefined) dbUpdates.in_stock = updates.inStock;
 
   const { error } = await _supabase
     .from('menu_items')
@@ -273,6 +309,74 @@ async function updateMenuItem(itemId, updates) {
     saveMenuToStorage(_menuCache);
   }
   return { success: !error };
+}
+
+async function createMenuItem(item) {
+  const row = {
+    id: item.id,
+    name: item.name,
+    description: item.description || '',
+    category: item.category,
+    price: item.price,
+    image: item.image || '',
+    in_stock: item.inStock !== false,
+    addons: item.addons || [],
+    sort_order: item.sortOrder || 0,
+  };
+
+  const { error } = await _supabase.from('menu_items').insert(row);
+
+  if (!error) {
+    _menuCache = _menuCache.concat([transformMenuItem(row)]);
+    saveMenuToStorage(_menuCache);
+  }
+  return { success: !error };
+}
+
+async function deleteMenuItem(itemId) {
+  const { error } = await _supabase
+    .from('menu_items')
+    .delete()
+    .eq('id', itemId);
+
+  if (!error) {
+    _menuCache = _menuCache.filter(function (item) { return item.id !== itemId; });
+    saveMenuToStorage(_menuCache);
+  }
+  return { success: !error };
+}
+
+// Moves every item in a category to a new category name (used when renaming)
+async function renameMenuCategory(oldName, newName) {
+  const { error } = await _supabase
+    .from('menu_items')
+    .update({ category: newName })
+    .eq('category', oldName);
+
+  if (!error) {
+    _menuCache = _menuCache.map(function (item) {
+      if (item.category === oldName) return Object.assign({}, item, { category: newName });
+      return item;
+    });
+    saveMenuToStorage(_menuCache);
+  }
+  return { success: !error };
+}
+
+async function uploadMenuImage(file) {
+  const ext = ((file.name || '').split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+  const path = 'items/' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+
+  const { error } = await _supabase.storage
+    .from(MENU_IMAGES_BUCKET)
+    .upload(path, file, { cacheControl: '31536000', contentType: file.type, upsert: false });
+
+  if (error) {
+    console.warn('uploadMenuImage failed:', error);
+    return { success: false };
+  }
+  const { data } = _supabase.storage.from(MENU_IMAGES_BUCKET).getPublicUrl(path);
+  return { success: true, url: data.publicUrl };
 }
 
 function invalidateMenuCache() {
@@ -299,7 +403,87 @@ async function fetchMenuFresh() {
   return _menuCache;
 }
 
+// ─── Categories ──────────────────────────────────────────────
+// Stored in settings under "categories" as [{name, icon}] in display order.
+// Items whose category is not in the list are not shown in the menu grid.
+
+const CATEGORIES_STORAGE_KEY = 'saji_categories_cache';
+
+function normalizeCategories(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = {};
+  return list
+    .map(function (c) {
+      return {
+        name: String((c && c.name) || '').trim(),
+        icon: String((c && c.icon) || '').trim(),
+      };
+    })
+    .filter(function (c) {
+      if (!c.name || seen[c.name]) return false;
+      seen[c.name] = true;
+      return true;
+    });
+}
+
+let _categoriesCache = (function () {
+  try {
+    const stored = normalizeCategories(JSON.parse(localStorage.getItem(CATEGORIES_STORAGE_KEY) || 'null'));
+    if (stored.length) return stored;
+  } catch (e) {}
+  return DEFAULT_CATEGORIES.slice();
+})();
+
+function getCachedCategories() {
+  return _categoriesCache;
+}
+
+function getCategoryIcon(categoryName) {
+  const cat = _categoriesCache.find(function (c) { return c.name === categoryName; });
+  return (cat && cat.icon) || DEFAULT_ITEM_ICON;
+}
+
+async function getCategories() {
+  try {
+    const { data, error } = await _supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'categories')
+      .maybeSingle();
+
+    if (!error && data) {
+      const list = normalizeCategories(data.value);
+      if (list.length) {
+        _categoriesCache = list;
+        try { localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+      }
+    }
+  } catch (err) {
+    console.warn('getCategories failed:', err);
+  }
+  return _categoriesCache;
+}
+
+async function saveCategories(list) {
+  const clean = normalizeCategories(list);
+  const { error } = await _supabase
+    .from('settings')
+    .upsert({ key: 'categories', value: clean }, { onConflict: 'key' });
+
+  if (!error) {
+    _categoriesCache = clean;
+    try { localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(clean)); } catch (e) {}
+  }
+  return { success: !error };
+}
+
 // ─── Orders Functions ────────────────────────────────────────
+
+const ORDER_TOKEN_PREFIX = 'saji_order_token_';
+
+function getOrderAccessToken(orderId) {
+  try { return localStorage.getItem(ORDER_TOKEN_PREFIX + orderId); } catch (e) { return null; }
+}
 
 async function getOrders() {
   try {
@@ -337,7 +521,7 @@ async function saveOrder(orderData) {
 
     // Store access token for secure order lookups
     if (data && data.access_token) {
-      try { localStorage.setItem('saji_order_token_' + data.id, data.access_token); } catch (e) {}
+      try { localStorage.setItem(ORDER_TOKEN_PREFIX + data.id, data.access_token); } catch (e) {}
     }
 
     return { success: true, data: data };
@@ -374,45 +558,31 @@ async function getCompletedOrders() {
 
 async function getOrderStatus(orderId) {
   var result = await getOrderStatusFull(orderId);
-  return result.status === 'not_found' ? null : result.status;
+  return (result.status === 'not_found' || result.status === 'error') ? null : result.status;
 }
 
+// Returns { status, cancelNote }. status is 'not_found' when the order no
+// longer exists (or we have no token for it) and 'error' when the lookup
+// itself failed, e.g. while offline.
 async function getOrderStatusFull(orderId) {
-  // Try secure RPC first (orders created with access_token)
-  try {
-    var token = localStorage.getItem('saji_order_token_' + orderId);
-    if (token) {
-      var rpcResult = await _supabase.rpc('get_order_status', {
-        p_order_id: orderId,
-        p_access_token: token,
-      });
-      if (!rpcResult.error && rpcResult.data && rpcResult.data.status !== 'not_found') {
-        return {
-          status: rpcResult.data.status,
-          cancelNote: rpcResult.data.cancel_note || '',
-        };
-      }
-    }
-  } catch (e) {}
+  var token = getOrderAccessToken(orderId);
+  if (!token) return { status: 'not_found' };
 
-  // Fallback: direct query (old orders without access_token)
   try {
-    var directResult = await _supabase
-      .from('orders')
-      .select('status, cancel_note')
-      .eq('id', orderId)
-      .single();
-
-    if (!directResult.error && directResult.data) {
-      return {
-        status: directResult.data.status,
-        cancelNote: directResult.data.cancel_note || '',
-      };
-    }
+    var rpcResult = await _supabase.rpc('get_order_status', {
+      p_order_id: orderId,
+      p_access_token: token,
+    });
+    if (rpcResult.error || !rpcResult.data) return { status: 'error' };
+    if (rpcResult.data.status === 'not_found') return { status: 'not_found' };
+    return {
+      status: rpcResult.data.status,
+      cancelNote: rpcResult.data.cancel_note || '',
+    };
   } catch (err) {
     console.warn('getOrderStatusFull failed:', err);
+    return { status: 'error' };
   }
-  return { status: 'not_found' };
 }
 
 async function declineOrder(orderId, note) {
@@ -519,31 +689,66 @@ async function isAdminLoggedIn() {
 // ─── Realtime Subscriptions ─────────────────────────────────
 
 let _orderChannel = null;
+let _orderPollTimer = null;
+let _orderWakeHandler = null;
 let _ordersChannel = null;
 let _menuChannel = null;
 
+const ORDER_POLL_INTERVAL = 20 * 1000;
+
+// Customers can't read the orders table, so tracking listens on a broadcast
+// channel named after the order's secret access token (sent by a database
+// trigger) and polls get_order_status as a fallback for dropped sockets.
+// The callback only fires when the status actually changes.
 function subscribeToOrder(orderId, callback) {
   unsubscribeFromOrder();
-  _orderChannel = _supabase
-    .channel('order-tracking-' + orderId)
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'orders', filter: 'id=eq.' + orderId },
-      function (payload) {
-        if (payload.new) {
-          callback({
-            status: payload.new.status,
-            cancelNote: payload.new.cancel_note || '',
-          });
+  var lastStatus = null;
+
+  function emit(result) {
+    if (!result || ORDER_STATUSES.indexOf(result.status) === -1) return;
+    if (result.status === lastStatus) return;
+    lastStatus = result.status;
+    callback(result);
+  }
+
+  var token = getOrderAccessToken(orderId);
+  if (token) {
+    _orderChannel = _supabase
+      .channel('order-' + token)
+      .on('broadcast', { event: 'status' }, function (message) {
+        var payload = message && message.payload;
+        if (payload) {
+          emit({ status: payload.status, cancelNote: payload.cancel_note || '' });
         }
-      }
-    )
-    .subscribe();
+      })
+      .subscribe();
+  }
+
+  function poll() {
+    getOrderStatusFull(orderId).then(emit).catch(function () {});
+  }
+
+  _orderPollTimer = setInterval(poll, ORDER_POLL_INTERVAL);
+  _orderWakeHandler = function () {
+    if (document.visibilityState === 'visible') poll();
+  };
+  document.addEventListener('visibilitychange', _orderWakeHandler);
+  window.addEventListener('online', _orderWakeHandler);
 }
 
 function unsubscribeFromOrder() {
   if (_orderChannel) {
     _supabase.removeChannel(_orderChannel);
     _orderChannel = null;
+  }
+  if (_orderPollTimer) {
+    clearInterval(_orderPollTimer);
+    _orderPollTimer = null;
+  }
+  if (_orderWakeHandler) {
+    document.removeEventListener('visibilitychange', _orderWakeHandler);
+    window.removeEventListener('online', _orderWakeHandler);
+    _orderWakeHandler = null;
   }
 }
 

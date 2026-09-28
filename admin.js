@@ -22,7 +22,7 @@
     trash:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
   };
 
-  let lastOrderCount = 0;
+  let knownOrderIds = null;   // active order ids already seen; null until the first load
   let audioCtx = null;
   let menuCache = [];
 
@@ -76,7 +76,7 @@
   // ─── Browser Notification ──────────────────────────────────
   function sendBrowserNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body: body, icon: 'asstes/saji_app_logo.png' });
+      new Notification(title, { body: body, icon: 'assets/saji_app_logo.png' });
     }
   }
 
@@ -107,28 +107,41 @@
     $('#cookingOrders').innerHTML = cooking.length ? cooking.map(o => renderOrderCard(o, 'cooking')).join('') : emptyMsg;
     $('#deliveryOrders').innerHTML = delivery.length ? delivery.map(o => renderOrderCard(o, 'delivery')).join('') : emptyMsg;
 
-    if (orders.length > lastOrderCount && lastOrderCount > 0) {
-      const newCount = orders.length - lastOrderCount;
-      playNotificationSound();
-      sendBrowserNotification(
-        '🔔 طلب جديد!',
-        `وصل ${newCount} طلب جديد — اضغط للمراجعة`
-      );
+    // Alert on order ids we haven't seen yet. Comparing counts missed the
+    // first order after an empty queue and orders arriving as others finish.
+    if (knownOrderIds) {
+      const newCount = orders.filter(o => !knownOrderIds.has(o.id)).length;
+      if (newCount > 0) {
+        playNotificationSound();
+        sendBrowserNotification(
+          '🔔 طلب جديد!',
+          `وصل ${newCount} طلب جديد — اضغط للمراجعة`
+        );
+      }
     }
-    lastOrderCount = orders.length;
+    knownOrderIds = new Set(orders.map(o => o.id));
 
-    document.querySelectorAll('[data-action]').forEach(btn => {
+    const ordersSection = $('#ordersSection');
+
+    ordersSection.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const originalHtml = btn.innerHTML;
         btn.disabled = true;
         btn.textContent = '...جاري التحديث';
-        await updateOrder(btn.dataset.orderId, btn.dataset.action);
+        const result = await updateOrder(btn.dataset.orderId, btn.dataset.action);
+        if (!result.success) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+          alert('تعذر تحديث حالة الطلب. تحقق من الاتصال وحاول مرة أخرى');
+          return;
+        }
         sendPushNotification(btn.dataset.orderId, btn.dataset.action);
         _lastOrdersHash = '';
         await renderOrders();
       });
     });
 
-    document.querySelectorAll('.decline-toggle-btn').forEach(btn => {
+    ordersSection.querySelectorAll('.decline-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const orderId = btn.dataset.orderId;
         const form = document.getElementById('decline-form-' + orderId);
@@ -139,7 +152,7 @@
       });
     });
 
-    document.querySelectorAll('.decline-confirm-btn').forEach(btn => {
+    ordersSection.querySelectorAll('.decline-confirm-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const orderId = btn.dataset.orderId;
         const noteEl = document.getElementById('decline-note-' + orderId);
@@ -149,9 +162,16 @@
           noteEl.setAttribute('placeholder', 'يرجى كتابة سبب الرفض');
           return;
         }
+        const originalText = btn.textContent;
         btn.disabled = true;
         btn.textContent = '...جاري الإلغاء';
-        await declineOrder(orderId, note);
+        const result = await declineOrder(orderId, note);
+        if (!result.success) {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          alert('تعذر إلغاء الطلب. تحقق من الاتصال وحاول مرة أخرى');
+          return;
+        }
         sendPushNotification(orderId, 'cancelled');
         _lastOrdersHash = '';
         await renderOrders();
@@ -302,67 +322,46 @@
   });
 
   // ─── Render Menu Management ─────────────────────────────────
-  let editingItemId = null;
-
-  async function renderMenuTable() {
-    const menu = await getMenu();
+  // fresh=true skips the 60s localStorage cache (after edits / realtime events)
+  async function renderMenuTable(fresh) {
+    const menu = fresh ? await fetchMenuFresh() : await getMenu();
     menuCache = menu;
     const body = $('#menuTableBody');
-    body.innerHTML = menu.map(item => {
-      const isEditing = editingItemId === item.id;
-      if (isEditing) {
-        return `
-          <div class="menu-table-row editing" data-item-id="${item.id}">
-            <div class="edit-row-fields">
-              <div class="edit-field">
-                <label>الاسم</label>
-                <input type="text" class="edit-input edit-name" value="${escapeHtml(item.name)}" data-item-id="${item.id}">
-              </div>
-              <div class="edit-field">
-                <label>السعر (د.ع)</label>
-                <input type="number" class="edit-input edit-price" value="${item.price}" min="0" data-item-id="${item.id}">
-              </div>
-              <div class="edit-field">
-                <label>التصنيف</label>
-                <select class="edit-input edit-category" data-item-id="${item.id}">
-                  ${CATEGORIES.map(cat => `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`).join('')}
-                </select>
-              </div>
-            </div>
-            <div class="edit-row-actions">
-              <button class="edit-save-btn" data-item-id="${item.id}">حفظ</button>
-              <button class="edit-cancel-btn" data-item-id="${item.id}">إلغاء</button>
-              <label class="toggle-switch">
-                <input type="checkbox" ${item.inStock ? 'checked' : ''} data-item-id="${item.id}">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
+    if (!menu.length) {
+      body.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px 0;">لا توجد أصناف بعد</p>';
+      return;
+    }
+    body.innerHTML = menu.map(item => `
+        <div class="menu-table-row" data-item-id="${escapeHtml(item.id)}">
+          <div class="menu-item-cell">
+            ${item.image
+              ? `<img src="${escapeHtml(item.image)}" alt="" class="menu-item-thumb" loading="lazy">`
+              : `<span class="menu-item-thumb">${escapeHtml(getCategoryIcon(item.category))}</span>`}
+            <span class="item-name">${escapeHtml(item.name)}</span>
           </div>
-        `;
-      }
-      return `
-        <div class="menu-table-row" data-item-id="${item.id}">
-          <div><span class="item-name">${escapeHtml(item.name)}</span></div>
           <span class="item-cat">${escapeHtml(item.category)}</span>
           <span class="item-price-cell">${formatPrice(item.price)}</span>
           <div class="menu-row-controls">
-            <button class="edit-btn" data-item-id="${item.id}" title="تعديل">
+            <button class="edit-btn" data-item-id="${escapeHtml(item.id)}" title="تعديل">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
             <label class="toggle-switch">
-              <input type="checkbox" ${item.inStock ? 'checked' : ''} data-item-id="${item.id}">
+              <input type="checkbox" ${item.inStock ? 'checked' : ''} data-item-id="${escapeHtml(item.id)}">
               <span class="toggle-slider"></span>
             </label>
           </div>
         </div>
-      `;
-    }).join('');
+      `).join('');
 
     // Stock toggles
     body.querySelectorAll('input[type="checkbox"]').forEach(toggle => {
       toggle.addEventListener('change', async () => {
         toggle.disabled = true;
-        await toggleStock(toggle.dataset.itemId, toggle.checked);
+        const result = await toggleStock(toggle.dataset.itemId, toggle.checked);
+        if (!result.success) {
+          toggle.checked = !toggle.checked;
+          alert('تعذر تحديث حالة التوفر. حاول مرة أخرى');
+        }
         toggle.disabled = false;
       });
     });
@@ -370,39 +369,343 @@
     // Edit buttons
     body.querySelectorAll('.edit-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        editingItemId = btn.dataset.itemId;
-        renderMenuTable();
-      });
-    });
-
-    // Cancel edit
-    body.querySelectorAll('.edit-cancel-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        editingItemId = null;
-        renderMenuTable();
-      });
-    });
-
-    // Save edit
-    body.querySelectorAll('.edit-save-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.itemId;
-        const row = body.querySelector(`.menu-table-row[data-item-id="${id}"]`);
-        const newName = row.querySelector('.edit-name').value.trim();
-        const newPrice = parseInt(row.querySelector('.edit-price').value);
-        const newCategory = row.querySelector('.edit-category').value;
-
-        if (!newName || !newPrice) return;
-
-        btn.disabled = true;
-        btn.textContent = '...حفظ';
-
-        await updateMenuItem(id, { name: newName, price: newPrice, category: newCategory });
-        editingItemId = null;
-        await renderMenuTable();
+        const item = menuCache.find(i => i.id === btn.dataset.itemId);
+        if (item) openItemEditor(item);
       });
     });
   }
+
+  // ─── Modals ──────────────────────────────────────────────────
+  const itemEditorModal = $('#itemEditorModal');
+  const categoriesModal = $('#categoriesModal');
+
+  function openModal(modal) {
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal(modal) {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  [itemEditorModal, categoriesModal].forEach(modal => {
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    [itemEditorModal, categoriesModal].forEach(modal => {
+      if (modal.classList.contains('active')) closeModal(modal);
+    });
+  });
+
+  function newId(prefix) {
+    return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  // ─── Menu Item Editor (add / edit / delete) ─────────────────
+  let editorItem = null;    // item being edited, null when adding
+  let editorAddons = [];    // [{id, name, price}] — price stays a string while typing
+
+  function openItemEditor(item) {
+    editorItem = item || null;
+    editorAddons = (item && Array.isArray(item.addons) ? item.addons : [])
+      .map(a => ({ id: a.id, name: a.name, price: a.price }));
+
+    $('#itemEditorTitle').textContent = item ? 'تعديل صنف' : 'إضافة صنف';
+    $('#itemName').value = item ? item.name : '';
+    $('#itemDescription').value = item ? (item.description || '') : '';
+    $('#itemPrice').value = item ? item.price : '';
+    $('#itemImage').value = item ? (item.image || '') : '';
+    $('#itemInStock').checked = item ? !!item.inStock : true;
+    $('#itemImageFile').value = '';
+    $('#itemImageStatus').textContent = '';
+    $('#itemEditorError').textContent = '';
+    $('#itemEditorDelete').style.display = item ? '' : 'none';
+
+    // Saved categories, plus the item's current one when it isn't listed
+    // (e.g. the family offer), so saving never moves an item by accident
+    const options = getCachedCategories().map(c => ({ value: c.name, label: c.name }));
+    if (item && item.category && !options.some(o => o.value === item.category)) {
+      options.push({ value: item.category, label: item.category + ' (لا يظهر في القائمة)' });
+    }
+    $('#itemCategory').innerHTML = options.map(o =>
+      `<option value="${escapeHtml(o.value)}" ${item && item.category === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`
+    ).join('');
+
+    renderImagePreview();
+    renderAddonsEditor();
+    openModal(itemEditorModal);
+    $('#itemName').focus();
+  }
+
+  function renderImagePreview() {
+    const url = $('#itemImage').value.trim();
+    $('#itemImagePreview').innerHTML = url
+      ? `<img src="${escapeHtml(url)}" alt="">`
+      : `<span>${escapeHtml(getCategoryIcon($('#itemCategory').value))}</span>`;
+  }
+
+  function renderAddonsEditor() {
+    const list = $('#itemAddons');
+    if (!editorAddons.length) {
+      list.innerHTML = '<p class="editor-hint">لا توجد إضافات لهذا الصنف</p>';
+      return;
+    }
+    list.innerHTML = editorAddons.map((a, i) => `
+      <div class="editor-list-row" data-index="${i}">
+        <input type="text" class="edit-input addon-name" value="${escapeHtml(a.name)}" placeholder="اسم الإضافة" maxlength="60" aria-label="اسم الإضافة">
+        <input type="number" class="edit-input addon-price" value="${escapeHtml(a.price)}" placeholder="السعر" min="0" step="1" aria-label="سعر الإضافة">
+        <button type="button" class="row-icon-btn danger" aria-label="حذف الإضافة">${IC.trash}</button>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.editor-list-row').forEach(row => {
+      const i = parseInt(row.dataset.index, 10);
+      row.querySelector('.addon-name').addEventListener('input', (e) => { editorAddons[i].name = e.target.value; });
+      row.querySelector('.addon-price').addEventListener('input', (e) => { editorAddons[i].price = e.target.value; });
+      row.querySelector('.row-icon-btn').addEventListener('click', () => {
+        editorAddons.splice(i, 1);
+        renderAddonsEditor();
+      });
+    });
+  }
+
+  $('#addItemBtn').addEventListener('click', () => openItemEditor(null));
+  $('#itemEditorClose').addEventListener('click', () => closeModal(itemEditorModal));
+  $('#itemEditorCancel').addEventListener('click', () => closeModal(itemEditorModal));
+  $('#itemImage').addEventListener('input', renderImagePreview);
+  $('#itemCategory').addEventListener('change', renderImagePreview);
+
+  $('#addAddonBtn').addEventListener('click', () => {
+    editorAddons.push({ id: newId('addon_'), name: '', price: '' });
+    renderAddonsEditor();
+    const names = $$('#itemAddons .addon-name');
+    if (names.length) names[names.length - 1].focus();
+  });
+
+  $('#itemImageFile').addEventListener('change', async () => {
+    const input = $('#itemImageFile');
+    const file = input.files[0];
+    const status = $('#itemImageStatus');
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      status.textContent = 'يرجى اختيار صورة بصيغة PNG أو JPG أو WEBP';
+      input.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      status.textContent = 'حجم الصورة يجب أن يكون أقل من 5 ميغابايت';
+      input.value = '';
+      return;
+    }
+
+    const saveBtn = $('#itemEditorSave');
+    status.textContent = '...جاري رفع الصورة';
+    saveBtn.disabled = true;
+    const result = await uploadMenuImage(file);
+    saveBtn.disabled = false;
+    input.value = '';
+
+    if (result.success) {
+      $('#itemImage').value = result.url;
+      status.textContent = '';
+      renderImagePreview();
+    } else {
+      status.textContent = 'تعذر رفع الصورة. حاول مرة أخرى';
+    }
+  });
+
+  $('#itemEditorForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorEl = $('#itemEditorError');
+    const name = $('#itemName').value.trim();
+    const price = parseInt($('#itemPrice').value, 10);
+    const category = $('#itemCategory').value;
+
+    if (!name) { errorEl.textContent = 'يرجى كتابة اسم الصنف'; return; }
+    if (!price || price < 1) { errorEl.textContent = 'يرجى إدخال سعر صحيح'; return; }
+    if (!category) { errorEl.textContent = 'يرجى إضافة قسم أولاً من زر "الأقسام"'; return; }
+
+    const addons = [];
+    for (const a of editorAddons) {
+      const addonName = String(a.name || '').trim();
+      const priceText = String(a.price == null ? '' : a.price).trim();
+      if (!addonName && !priceText) continue;   // ignore untouched empty rows
+      const addonPrice = parseInt(priceText, 10);
+      if (!addonName || isNaN(addonPrice) || addonPrice < 0) {
+        errorEl.textContent = 'يرجى كتابة اسم وسعر لكل إضافة';
+        return;
+      }
+      addons.push({ id: a.id, name: addonName, price: addonPrice });
+    }
+
+    const fields = {
+      name: name,
+      price: price,
+      category: category,
+      description: $('#itemDescription').value.trim(),
+      image: $('#itemImage').value.trim(),
+      inStock: $('#itemInStock').checked,
+      addons: addons,
+    };
+
+    const saveBtn = $('#itemEditorSave');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '...حفظ';
+    errorEl.textContent = '';
+
+    let result;
+    if (editorItem) {
+      result = await updateMenuItem(editorItem.id, fields);
+    } else {
+      const maxSort = menuCache.reduce((max, i) => Math.max(max, i.sortOrder || 0), 0);
+      result = await createMenuItem(Object.assign({ id: newId('item_'), sortOrder: maxSort + 1 }, fields));
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ';
+
+    if (!result.success) {
+      errorEl.textContent = 'حدث خطأ أثناء الحفظ. حاول مرة أخرى';
+      return;
+    }
+    closeModal(itemEditorModal);
+    await renderMenuTable(true);
+  });
+
+  $('#itemEditorDelete').addEventListener('click', async () => {
+    if (!editorItem) return;
+    if (!confirm(`هل أنت متأكد من حذف "${editorItem.name}"؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+
+    const btn = $('#itemEditorDelete');
+    btn.disabled = true;
+    const result = await deleteMenuItem(editorItem.id);
+    btn.disabled = false;
+
+    if (!result.success) {
+      $('#itemEditorError').textContent = 'تعذر حذف الصنف. حاول مرة أخرى';
+      return;
+    }
+    closeModal(itemEditorModal);
+    await renderMenuTable(true);
+  });
+
+  // ─── Categories Editor ──────────────────────────────────────
+  // Order here is the order on the customer menu. Renaming a category moves
+  // its items along; a category can only be removed once it has no items.
+  let editorCategories = [];   // [{name, icon, originalName}]
+
+  function countItemsIn(categoryName) {
+    return menuCache.filter(i => i.category === categoryName).length;
+  }
+
+  function openCategoriesEditor() {
+    editorCategories = getCachedCategories().map(c => ({ name: c.name, icon: c.icon, originalName: c.name }));
+    $('#categoriesError').textContent = '';
+    renderCategoriesEditor();
+    openModal(categoriesModal);
+  }
+
+  function renderCategoriesEditor() {
+    const list = $('#categoriesList');
+    const last = editorCategories.length - 1;
+    list.innerHTML = editorCategories.map((c, i) => {
+      const count = c.originalName ? countItemsIn(c.originalName) : 0;
+      return `
+        <div class="editor-list-row category-row" data-index="${i}">
+          <input type="text" class="edit-input category-icon" value="${escapeHtml(c.icon)}" placeholder="🍽️" maxlength="8" aria-label="رمز القسم">
+          <input type="text" class="edit-input category-name" value="${escapeHtml(c.name)}" placeholder="اسم القسم" maxlength="40" aria-label="اسم القسم">
+          <span class="category-count">${count} صنف</span>
+          <button type="button" class="row-icon-btn move-btn" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="نقل للأعلى">▲</button>
+          <button type="button" class="row-icon-btn move-btn" data-dir="1" ${i === last ? 'disabled' : ''} aria-label="نقل للأسفل">▼</button>
+          <button type="button" class="row-icon-btn danger remove-btn" ${count ? 'disabled title="انقل أصناف هذا القسم أو احذفها أولاً"' : ''} aria-label="حذف القسم">${IC.trash}</button>
+        </div>
+      `;
+    }).join('');
+
+    list.querySelectorAll('.category-row').forEach(row => {
+      const i = parseInt(row.dataset.index, 10);
+      row.querySelector('.category-icon').addEventListener('input', (e) => { editorCategories[i].icon = e.target.value; });
+      row.querySelector('.category-name').addEventListener('input', (e) => { editorCategories[i].name = e.target.value; });
+      row.querySelectorAll('.move-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const j = i + parseInt(btn.dataset.dir, 10);
+          if (j < 0 || j >= editorCategories.length) return;
+          const moved = editorCategories[i];
+          editorCategories[i] = editorCategories[j];
+          editorCategories[j] = moved;
+          renderCategoriesEditor();
+        });
+      });
+      row.querySelector('.remove-btn').addEventListener('click', () => {
+        editorCategories.splice(i, 1);
+        renderCategoriesEditor();
+      });
+    });
+  }
+
+  $('#manageCategoriesBtn').addEventListener('click', openCategoriesEditor);
+  $('#categoriesClose').addEventListener('click', () => closeModal(categoriesModal));
+  $('#categoriesCancel').addEventListener('click', () => closeModal(categoriesModal));
+
+  $('#addCategoryBtn').addEventListener('click', () => {
+    editorCategories.push({ name: '', icon: '', originalName: null });
+    renderCategoriesEditor();
+    const names = $$('#categoriesList .category-name');
+    if (names.length) names[names.length - 1].focus();
+  });
+
+  $('#categoriesSave').addEventListener('click', async () => {
+    const errorEl = $('#categoriesError');
+    const cleaned = editorCategories.map(c => ({
+      name: c.name.trim(),
+      icon: c.icon.trim(),
+      originalName: c.originalName,
+    }));
+
+    if (!cleaned.length) { errorEl.textContent = 'يجب أن يبقى قسم واحد على الأقل'; return; }
+    if (cleaned.some(c => !c.name)) { errorEl.textContent = 'يرجى كتابة اسم لكل قسم'; return; }
+    const names = cleaned.map(c => c.name);
+    if (new Set(names).size !== names.length) { errorEl.textContent = 'أسماء الأقسام يجب أن تكون مختلفة'; return; }
+
+    // A rename must not land on a name that already holds items or that
+    // another row is being renamed from — the items would get merged
+    const originalNames = cleaned.map(c => c.originalName).filter(Boolean);
+    const renames = cleaned.filter(c => c.originalName && c.originalName !== c.name);
+    const clash = renames.find(c => originalNames.indexOf(c.name) !== -1 || countItemsIn(c.name) > 0);
+    if (clash) {
+      errorEl.textContent = `الاسم "${clash.name}" مستخدم لقسم آخر`;
+      return;
+    }
+
+    const saveBtn = $('#categoriesSave');
+    saveBtn.disabled = true;
+    saveBtn.textContent = '...حفظ';
+    errorEl.textContent = '';
+
+    for (const c of renames) {
+      const renamed = await renameMenuCategory(c.originalName, c.name);
+      if (!renamed.success) {
+        errorEl.textContent = `تعذر تغيير اسم القسم "${c.originalName}"`;
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'حفظ';
+        return;
+      }
+    }
+
+    const result = await saveCategories(cleaned.map(c => ({ name: c.name, icon: c.icon })));
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'حفظ';
+
+    if (!result.success) {
+      errorEl.textContent = 'حدث خطأ أثناء حفظ الأقسام. حاول مرة أخرى';
+      return;
+    }
+    closeModal(categoriesModal);
+    await renderMenuTable(true);
+  });
 
   // ─── Refresh Button ──────────────────────────────────────────
   $('#refreshBtn').addEventListener('click', async () => {
@@ -410,7 +713,8 @@
     btn.classList.add('spinning');
     _lastOrdersHash = '';
     await renderOrders();
-    await renderMenuTable();
+    await getCategories();
+    await renderMenuTable(true);
     setTimeout(() => btn.classList.remove('spinning'), 600);
   });
 
@@ -420,7 +724,7 @@
       renderOrders();
     });
     subscribeToMenu(function () {
-      renderMenuTable();
+      renderMenuTable(true);
     });
   }
 
@@ -468,12 +772,12 @@
   async function startDashboard() {
     const [ordersResult] = await Promise.allSettled([
       getOrders(),
-      renderMenuTable(),
+      getCategories().then(() => renderMenuTable(true)),
       loadRestaurantStatus(),
     ]);
 
     if (ordersResult.status === 'fulfilled') {
-      lastOrderCount = ordersResult.value.length;
+      knownOrderIds = new Set(ordersResult.value.map(o => o.id));
     }
     await renderOrders();
     setupStatusToggle();

@@ -7,14 +7,14 @@
   <meta name="description" content="لوحة تحكم مطعم صاجي لإدارة الطلبات والقائمة">
   <meta name="theme-color" content="#1a1a2e">
   <link rel="manifest" href="manifest-admin.json">
-  <link rel="apple-touch-icon" href="asstes/saji_app_logo.png">
+  <link rel="apple-touch-icon" href="assets/saji_app_logo.png">
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
 
 <!-- ═══ INSTALL BANNER ═══ -->
 <div class="admin-install-banner" id="adminInstallBanner">
-  <img src="asstes/saji_logo.png" alt="صاجي" class="admin-install-logo">
+  <img src="assets/saji_logo.png" alt="صاجي" class="admin-install-logo">
   <div class="admin-install-text">
     <strong>ثبّت تطبيق صاجي أدمن</strong>
     <span>وصول أسرع للوحة التحكم</span>
@@ -26,7 +26,7 @@
 <!-- ═══ LOGIN SCREEN ═══ -->
 <div class="admin-login-overlay" id="loginOverlay">
   <div class="login-card">
-    <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="login-logo">
+    <img src="assets/saji_logo_bg_erased.png" alt="صاجي" class="login-logo">
     <h2>لوحة التحكم</h2>
     <form id="loginForm" autocomplete="off">
       <div class="login-input-wrap" style="margin-bottom:12px;">
@@ -46,7 +46,7 @@
 </div>
 
 <header class="admin-header">
-  <img src="asstes/saji_logo_bg_erased.png" alt="صاجي" class="logo">
+  <img src="assets/saji_logo_bg_erased.png" alt="صاجي" class="logo">
   <h1>لوحة التحكم</h1>
   <div class="status-toggle" id="statusToggle">
     <span class="status-label" id="statusLabel">مفتوح</span>
@@ -138,6 +138,10 @@
 
   <!-- ═══ MENU TAB ═══ -->
   <div class="menu-section-admin" id="menuSection">
+    <div class="menu-toolbar">
+      <button type="button" class="menu-toolbar-btn primary" id="addItemBtn">+ إضافة صنف</button>
+      <button type="button" class="menu-toolbar-btn" id="manageCategoriesBtn">الأقسام</button>
+    </div>
     <div class="menu-table">
       <div class="menu-table-header">
         <span>الصنف</span>
@@ -202,6 +206,88 @@
 <!-- Menu Preview View -->
 <div class="admin-view" id="previewView">
   <iframe src="index.html" class="menu-preview-frame" id="menuPreviewFrame"></iframe>
+</div>
+
+<!-- ═══ MENU ITEM EDITOR ═══ -->
+<div class="admin-modal-overlay" id="itemEditorModal">
+  <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="itemEditorTitle">
+    <div class="admin-modal-header">
+      <h3 id="itemEditorTitle">إضافة صنف</h3>
+      <button type="button" class="admin-modal-close" id="itemEditorClose" aria-label="إغلاق">✕</button>
+    </div>
+    <form id="itemEditorForm" class="admin-modal-body" autocomplete="off" novalidate>
+      <div class="edit-field">
+        <label for="itemName">الاسم</label>
+        <input type="text" id="itemName" class="edit-input" maxlength="120">
+      </div>
+      <div class="edit-field">
+        <label for="itemDescription">الوصف</label>
+        <textarea id="itemDescription" class="edit-input" rows="2" maxlength="300"></textarea>
+      </div>
+      <div class="editor-row">
+        <div class="edit-field">
+          <label for="itemPrice">السعر (د.ع)</label>
+          <input type="number" id="itemPrice" class="edit-input" min="1" step="1">
+        </div>
+        <div class="edit-field">
+          <label for="itemCategory">القسم</label>
+          <select id="itemCategory" class="edit-input"></select>
+        </div>
+      </div>
+      <div class="edit-field">
+        <label for="itemImage">الصورة</label>
+        <div class="image-picker">
+          <div class="image-preview" id="itemImagePreview"></div>
+          <div class="image-picker-controls">
+            <label class="menu-toolbar-btn image-upload-btn">
+              رفع صورة
+              <input type="file" id="itemImageFile" accept="image/png,image/jpeg,image/webp" hidden>
+            </label>
+            <input type="text" id="itemImage" class="edit-input" placeholder="أو الصق رابط الصورة" dir="ltr">
+          </div>
+        </div>
+        <div class="editor-hint" id="itemImageStatus"></div>
+      </div>
+      <div class="edit-field">
+        <label>الإضافات</label>
+        <div class="editor-list" id="itemAddons"></div>
+        <button type="button" class="add-row-btn" id="addAddonBtn">+ إضافة</button>
+      </div>
+      <label class="editor-stock">
+        <span>متوفر</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="itemInStock" checked>
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+      <div class="editor-error" id="itemEditorError"></div>
+      <div class="admin-modal-actions">
+        <button type="submit" class="edit-save-btn" id="itemEditorSave">حفظ</button>
+        <button type="button" class="edit-cancel-btn" id="itemEditorCancel">إلغاء</button>
+        <button type="button" class="editor-delete-btn" id="itemEditorDelete">حذف الصنف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ CATEGORIES EDITOR ═══ -->
+<div class="admin-modal-overlay" id="categoriesModal">
+  <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="categoriesTitle">
+    <div class="admin-modal-header">
+      <h3 id="categoriesTitle">الأقسام</h3>
+      <button type="button" class="admin-modal-close" id="categoriesClose" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="admin-modal-body">
+      <p class="editor-hint">الترتيب هنا هو ترتيب الأقسام في قائمة الزبائن. تغيير اسم القسم ينقل أصنافه معه.</p>
+      <div class="editor-list" id="categoriesList"></div>
+      <button type="button" class="add-row-btn" id="addCategoryBtn">+ قسم جديد</button>
+      <div class="editor-error" id="categoriesError"></div>
+      <div class="admin-modal-actions">
+        <button type="button" class="edit-save-btn" id="categoriesSave">حفظ</button>
+        <button type="button" class="edit-cancel-btn" id="categoriesCancel">إلغاء</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ Supabase SDK ═══ -->

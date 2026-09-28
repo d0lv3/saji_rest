@@ -1,5 +1,5 @@
 // sw.js — Service Worker for PWA + Firebase Push Notifications
-const CACHE_NAME = 'saji-v2';
+const CACHE_NAME = 'saji-v3';
 
 // ─── Firebase Messaging (Background Push) ────────────────────
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
@@ -27,8 +27,8 @@ messaging.onBackgroundMessage((payload) => {
 
   return self.registration.showNotification(title, {
     body: body,
-    icon: 'asstes/saji_app_logo.png',
-    badge: 'asstes/saji_app_logo.png',
+    icon: 'assets/saji_app_logo.png',
+    badge: 'assets/saji_app_logo.png',
     tag: 'saji-order-' + Date.now(),
     vibrate: [200, 100, 200],
     data: payload.data || {},

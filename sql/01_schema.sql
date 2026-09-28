@@ -9,6 +9,7 @@
 --    Email: admin@saji.restaurant  Password: (your admin password)
 -- 5. Copy your project URL and anon key from Settings → API
 --    and paste them into data.js
+-- 6. Run the remaining files in sql/ in order (see README.md)
 -- ============================================================
 
 -- ─── Tables ─────────────────────────────────────────────────

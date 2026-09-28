@@ -43,6 +43,10 @@ const STATUS_NOTIFICATIONS: Record<
   },
 };
 
+// A customer's "new order" alert to the admin is only accepted this soon after
+// the order was placed (and only once per order — see admin_notified).
+const NEW_ORDER_WINDOW_MS = 5 * 60 * 1000;
+
 function base64url(data: Uint8Array): string {
   return btoa(String.fromCharCode(...data))
     .replace(/\+/g, "-")
@@ -149,7 +153,7 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
 
-  let body: { orderId: string; status: string };
+  let body: { orderId?: unknown; status?: unknown } | null;
   try {
     body = await req.json();
   } catch (err) {
@@ -160,9 +164,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { orderId, status } = body;
+    const { orderId, status } = body ?? {};
 
-    const notif = STATUS_NOTIFICATIONS[status];
+    if (typeof orderId !== "string" || orderId.length === 0 || orderId.length > 64) {
+      return Response.json(
+        { error: "Invalid orderId" },
+        { status: 400, headers: getCorsHeaders(req) }
+      );
+    }
+
+    const notif = typeof status === "string" && Object.hasOwn(STATUS_NOTIFICATIONS, status)
+      ? STATUS_NOTIFICATIONS[status]
+      : undefined;
     if (!notif) {
       return Response.json(
         { success: true, skipped: true },
@@ -176,8 +189,38 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Validate that the order actually exists (prevents abuse)
-    if (status !== "new_order") {
+    if (status === "new_order") {
+      // Customers are anonymous, so instead of auth: the order must be brand
+      // new, and each order can alert the admin only once. Claiming the flag
+      // in a single conditional update makes repeat calls no-ops.
+      const since = new Date(Date.now() - NEW_ORDER_WINDOW_MS).toISOString();
+      const { data: claimed, error: claimError } = await sb
+        .from("orders")
+        .update({ admin_notified: true })
+        .eq("id", orderId)
+        .eq("admin_notified", false)
+        .gte("created_at", since)
+        .select("id");
+      if (claimError) throw new Error(claimError.message);
+      if (!claimed || claimed.length === 0) {
+        return Response.json(
+          { success: true, skipped: true },
+          { headers: getCorsHeaders(req) }
+        );
+      }
+    } else {
+      // Status notifications go to customers, so only the signed-in admin
+      // dashboard may trigger them (email sign-ups are disabled, so any
+      // real user is an admin).
+      const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+      const { data: userData, error: userError } = await sb.auth.getUser(jwt);
+      if (userError || !userData?.user) {
+        return Response.json(
+          { error: "Unauthorized" },
+          { status: 401, headers: getCorsHeaders(req) }
+        );
+      }
+
       const { data: order } = await sb
         .from("orders")
         .select("id")

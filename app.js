@@ -9,6 +9,7 @@
   // ─── State ──────────────────────────────────────────────────
   let cart = [];
   let menuData = [];
+  let categories = getCachedCategories();
   let currentItem = null;
   let modalQty = 1;
   let modalAddons = [];
@@ -75,9 +76,9 @@
 
   // ─── Render Categories ──────────────────────────────────────
   function renderCategories() {
-    categoriesScroll.innerHTML = CATEGORIES.map((cat, i) => `
-      <button class="cat-pill ${i === 0 ? 'active' : ''}" data-cat="${cat}">
-        ${CATEGORY_ICONS[cat] || ''} ${cat}
+    categoriesScroll.innerHTML = categories.map((cat, i) => `
+      <button class="cat-pill ${i === 0 ? 'active' : ''}" data-cat="${escapeHtml(cat.name)}">
+        ${escapeHtml(cat.icon)} ${escapeHtml(cat.name)}
       </button>
     `).join('');
 
@@ -98,14 +99,14 @@
   // ─── Render Menu ────────────────────────────────────────────
   function renderMenuFromCache() {
     let html = '';
-    CATEGORIES.forEach(cat => {
-      const items = menuData.filter(item => item.category === cat);
+    categories.forEach(cat => {
+      const items = menuData.filter(item => item.category === cat.name);
       if (items.length === 0) return;
       html += `
-        <section class="menu-section" id="section-${cat}">
+        <section class="menu-section" id="section-${escapeHtml(cat.name)}">
           <h2 class="section-title">
-            <span class="emoji">${CATEGORY_ICONS[cat] || ''}</span>
-            ${cat}
+            <span class="emoji">${escapeHtml(cat.icon)}</span>
+            ${escapeHtml(cat.name)}
           </h2>
           <div class="menu-grid">
             ${items.map(item => renderItemCard(item)).join('')}
@@ -122,6 +123,19 @@
         const item = menuData.find(i => i.id === card.dataset.id);
         if (item && item.inStock) openItemModal(item);
       });
+    });
+
+    updateSpecialOfferBanners();
+  }
+
+  // The static banners in index.html point at a menu item; hide a banner
+  // when that item is missing or out of stock so its button never goes dead.
+  function updateSpecialOfferBanners() {
+    document.querySelectorAll('.special-offer-order-btn').forEach(btn => {
+      const banner = btn.closest('.special-offer-banner');
+      if (!banner) return;
+      const item = menuData.find(i => i.id === btn.dataset.itemId);
+      banner.style.display = (item && item.inStock) ? '' : 'none';
     });
   }
 
@@ -181,7 +195,7 @@
           <div class="offer-banner-items">
             ${items.map(e => `
               <div class="offer-banner-item">
-                ${e.item.image ? `<img src="${escapeHtml(e.item.image)}" alt="${escapeHtml(e.item.name)}" class="offer-banner-item-img">` : `<span class="offer-banner-item-icon">${CATEGORY_ICONS[e.item.category] || '🍽️'}</span>`}
+                ${e.item.image ? `<img src="${escapeHtml(e.item.image)}" alt="${escapeHtml(e.item.name)}" class="offer-banner-item-img">` : `<span class="offer-banner-item-icon">${escapeHtml(getCategoryIcon(e.item.category))}</span>`}
                 <span class="offer-banner-item-name">${e.qty > 1 ? e.qty + '× ' : ''}${escapeHtml(e.item.name)}</span>
               </div>
             `).join('')}
@@ -239,17 +253,22 @@
       renderMenuFromCache();
     }
 
-    const [menuResult, statusResult] = await Promise.allSettled([
+    const [menuResult, statusResult, categoriesResult] = await Promise.allSettled([
       getMenu(),
       getRestaurantStatus(),
+      getCategories(),
     ]);
+
+    const categoriesChanged = applyCategories(categoriesResult);
 
     if (menuResult.status === 'fulfilled' && menuResult.value && menuResult.value.length) {
       const freshMenu = menuResult.value;
-      if (JSON.stringify(freshMenu) !== JSON.stringify(menuData)) {
+      if (categoriesChanged || JSON.stringify(freshMenu) !== JSON.stringify(menuData)) {
         menuData = freshMenu;
         renderMenuFromCache();
       }
+    } else if (categoriesChanged) {
+      renderMenuFromCache();
     }
 
     if (statusResult.status === 'fulfilled') {
@@ -266,6 +285,15 @@
     if (loader) loader.classList.add('hidden');
   }
 
+  // Re-renders the category bar when the list changed; returns whether it did
+  function applyCategories(result) {
+    if (!result || result.status !== 'fulfilled' || !result.value || !result.value.length) return false;
+    if (JSON.stringify(result.value) === JSON.stringify(categories)) return false;
+    categories = result.value;
+    renderCategories();
+    return true;
+  }
+
   // ─── Special Offer Banner Buttons ─────────────────────────────
   function setupSpecialOfferButtons() {
     document.querySelectorAll('.special-offer-order-btn').forEach(function (btn) {
@@ -280,7 +308,7 @@
   function renderItemCard(item) {
     const imgHtml = item.image
       ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="item-img" loading="lazy">`
-      : `<div class="item-placeholder">${CATEGORY_ICONS[item.category] || '🍽️'}</div>`;
+      : `<div class="item-placeholder">${escapeHtml(getCategoryIcon(item.category))}</div>`;
 
     return `
       <div class="item-card ${item.inStock ? '' : 'out-of-stock'}" data-id="${escapeHtml(item.id)}">
@@ -313,13 +341,13 @@
     const bar = document.querySelector('.categories-bar');
     if (!bar) return;
     const offset = bar.getBoundingClientRect().bottom + 20;
-    let activecat = CATEGORIES[0];
+    let activecat = categories.length ? categories[0].name : '';
 
-    for (const cat of CATEGORIES) {
-      const el = document.getElementById('section-' + cat);
+    for (const cat of categories) {
+      const el = document.getElementById('section-' + cat.name);
       if (!el) continue;
       const top = el.getBoundingClientRect().top;
-      if (top <= offset) activecat = cat;
+      if (top <= offset) activecat = cat.name;
     }
 
     const pills = $$('.cat-pill');
@@ -354,7 +382,7 @@
     if (item.image) {
       imgContainer.innerHTML = `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="modal-img">`;
     } else {
-      imgContainer.innerHTML = `<div class="modal-img-placeholder">${CATEGORY_ICONS[item.category] || '🍽️'}</div>`;
+      imgContainer.innerHTML = `<div class="modal-img-placeholder">${escapeHtml(getCategoryIcon(item.category))}</div>`;
     }
 
     const addonsSection = $('#addonsSection');
@@ -674,6 +702,11 @@
 
     if (!valid) return;
 
+    // Ask for notification permission while we're still inside the tap that
+    // submitted the form (iOS ignores prompts that aren't user-initiated).
+    // The token gets attached to the order once it exists.
+    const pushTokenPromise = initFirebaseMessaging().catch(() => null);
+
     const submitBtn = $('#submitOrder');
     submitBtn.disabled = true;
     submitBtn.textContent = '...جاري الإرسال';
@@ -700,8 +733,17 @@
       submitBtn.disabled = false;
       submitBtn.textContent = 'تأكيد الطلب';
       var errMsg = result.error || '';
-      if (errMsg.indexOf('item_unavailable') !== -1) {
+      if (errMsg.indexOf('restaurant_closed') !== -1) {
+        document.getElementById('closedOverlay').style.display = 'flex';
+        alert('المطعم مغلق حالياً ولا يستقبل طلبات');
+      } else if (errMsg.indexOf('rate_limited') !== -1) {
+        alert('تم إرسال عدة طلبات من هذا الرقم خلال وقت قصير. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى');
+      } else if (errMsg.indexOf('invalid_phone') !== -1) {
+        alert('رقم الهاتف غير صالح');
+      } else if (errMsg.indexOf('item_unavailable') !== -1) {
         alert('بعض الأصناف لم تعد متوفرة. يرجى تحديث السلة');
+      } else if (errMsg.indexOf('invalid_addon') !== -1) {
+        alert('بعض الإضافات لم تعد متوفرة. يرجى تحديث السلة');
       } else if (errMsg.indexOf('offer_expired') !== -1) {
         alert('العرض انتهت صلاحيته. يرجى إزالته من السلة');
       } else if (errMsg.indexOf('minimum_not_met') !== -1) {
@@ -731,10 +773,9 @@
     submitBtn.textContent = 'تأكيد الطلب';
     $('#checkoutForm').reset();
 
-    const fcmToken = getFCMToken();
-    if (fcmToken) {
-      savePushToken(serverOrder.id, fcmToken).catch(function () {});
-    }
+    pushTokenPromise.then(function (fcmToken) {
+      if (fcmToken) savePushToken(serverOrder.id, fcmToken).catch(function () {});
+    });
 
     sendPushNotification(serverOrder.id, 'new_order');
 
@@ -852,11 +893,16 @@
   // ─── Menu Realtime Sync ───────────────────────────────────
   function startMenuRealtime() {
     subscribeToMenu(async function () {
-      const freshMenu = await fetchMenuFresh();
+      const [menuResult, categoriesResult] = await Promise.allSettled([
+        fetchMenuFresh(),
+        getCategories(),
+      ]);
+      applyCategories(categoriesResult);
+      const freshMenu = menuResult.status === 'fulfilled' ? menuResult.value : null;
       if (freshMenu && freshMenu.length) {
         menuData = freshMenu;
-        renderMenuFromCache();
       }
+      renderMenuFromCache();
     });
     subscribeToOffers(function () {
       loadAndRenderOffers();
@@ -951,12 +997,18 @@
 
     loadAndRenderMenu();
 
-    initFirebaseMessaging().catch(() => {});
+    // Only picks up an existing permission; the prompt is shown when ordering
+    initFirebaseMessaging({ askPermission: false }).catch(() => {});
 
     // ─── Restore active order tracking ──────────────────────
     if (currentOrderId) {
       hasActiveOrder = true;
       getOrderStatusFull(currentOrderId).then(result => {
+        if (result && result.status === 'error') {
+          // Couldn't reach the server (e.g. offline) — keep the order; polling catches up
+          updateFloatingOrderCard();
+          return;
+        }
         if (result && result.status !== 'not_found') {
           if (result.status === 'cancelled') {
             var cancelId = currentOrderId;
