@@ -124,19 +124,6 @@
         if (item && item.inStock) openItemModal(item);
       });
     });
-
-    updateSpecialOfferBanners();
-  }
-
-  // The static banners in index.html point at a menu item; hide a banner
-  // when that item is missing or out of stock so its button never goes dead.
-  function updateSpecialOfferBanners() {
-    document.querySelectorAll('.special-offer-order-btn').forEach(btn => {
-      const banner = btn.closest('.special-offer-banner');
-      if (!banner) return;
-      const item = menuData.find(i => i.id === btn.dataset.itemId);
-      banner.style.display = (item && item.inStock) ? '' : 'none';
-    });
   }
 
   // ─── Render Offers ──────────────────────────────────────────
@@ -279,7 +266,6 @@
     }
 
     await loadAndRenderOffers();
-    setupSpecialOfferButtons();
 
     const loader = document.getElementById('loadingScreen');
     if (loader) loader.classList.add('hidden');
@@ -292,17 +278,6 @@
     categories = result.value;
     renderCategories();
     return true;
-  }
-
-  // ─── Special Offer Banner Buttons ─────────────────────────────
-  function setupSpecialOfferButtons() {
-    document.querySelectorAll('.special-offer-order-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        if (hasActiveOrder) return;
-        var item = menuData.find(function (i) { return i.id === btn.dataset.itemId; });
-        if (item && item.inStock) openItemModal(item);
-      });
-    });
   }
 
   function renderItemCard(item) {

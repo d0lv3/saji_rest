@@ -77,8 +77,9 @@ push notifications. The service worker is network-first, so a reload picks up th
 - Images uploaded from the admin menu editor go to the public `menu-images` storage
   bucket. Images typed as a path (e.g. `assets/dishes_assets/x.png`) must exist in this repo.
 - Categories live in `settings` → `categories` as `[{name, icon}]`. Items whose category
-  isn't in that list (like the `عروض خاصة` items used by the fixed banners) don't show in
-  the menu grid.
+  isn't in that list don't show in the menu grid.
+- Special offers are created in the admin **Offers** tab. There are no hard-coded offer
+  banners anymore.
 - `assets/dishes_assets/mmw_638454123996127427.jpg` and `special_plate2.png` aren't
   referenced in code but may be used by menu rows. Check before deleting:
   ```sql
