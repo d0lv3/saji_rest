@@ -80,9 +80,8 @@ push notifications. The service worker is network-first, so a reload picks up th
   isn't in that list don't show in the menu grid.
 - Special offers are created in the admin **Offers** tab. There are no hard-coded offer
   banners anymore.
-- `assets/dishes_assets/mmw_638454123996127427.jpg` and `special_plate2.png` aren't
-  referenced in code but may be used by menu rows. Check before deleting:
+- `assets/dishes_assets/mmw_638454123996127427.jpg` isn't referenced in code or by any
+  menu row (as of 2026-09-28). Check again before deleting:
   ```sql
-  SELECT id, name, image FROM menu_items
-   WHERE image LIKE '%mmw_%' OR image LIKE '%special_plate2%';
+  SELECT id, name, image FROM menu_items WHERE image LIKE '%mmw_%';
   ```
