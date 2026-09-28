@@ -611,14 +611,11 @@ async function deleteCompletedOrder(orderId) {
 
 // ─── Promo Code Functions ────────────────────────────────────
 
+// Customers can't read promo_codes; check_promo_code() answers for a
+// single code and returns null when it's unknown or inactive.
 async function validatePromoCode(code) {
   try {
-    const { data, error } = await _supabase
-      .from('promo_codes')
-      .select('code, type, value')
-      .eq('code', code)
-      .eq('active', true)
-      .single();
+    const { data, error } = await _supabase.rpc('check_promo_code', { p_code: code });
 
     if (!error && data) {
       return { code: data.code, type: data.type, value: data.value };

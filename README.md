@@ -34,12 +34,15 @@ Messaging.
   in Supabase Auth, because any signed-in user is treated as the admin.
 - The notification function only sends a "new order" alert once per order, right after
   it's placed, and only sends status updates when called by the signed-in admin.
+- Promo codes can't be listed. The cart checks one code at a time with
+  `check_promo_code()`, and `create_order()` applies the discount server-side. Manage codes
+  in the Supabase Table Editor.
 
 ## Setting up from scratch
 
 1. Create a Supabase project. Disable email sign-ups (Authentication → Providers → Email)
    and create the admin user by hand (Authentication → Users → Add user).
-2. In the SQL Editor, run every file in `sql/` in order: `01` → `07`.
+2. In the SQL Editor, run every file in `sql/` in order: `01` → `09`.
 3. Put the project URL and anon key in `data.js`, and the Firebase web config in `data.js`
    and `sw.js`.
 4. Deploy the Edge Function with a Firebase service account:
@@ -51,8 +54,10 @@ Messaging.
 
 ## Rolling out the security update (existing project)
 
-`01`–`03` are already applied on the live project. The rest must go in this order so the
-live site never breaks:
+`01`–`07` were applied on the live project on 2026-09-28, in the order below. `08` and
+`09` (promo codes) follow the same pattern: run `08`, deploy the site, then run `09`.
+
+The order matters so the live site never breaks:
 
 1. **SQL Editor:** run `sql/04_order_hardening.sql` and `sql/05_menu_management.sql`.
    These only add things, so the currently deployed site keeps working.

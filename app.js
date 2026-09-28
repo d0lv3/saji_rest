@@ -584,7 +584,7 @@
       <div class="cart-summary-row"><span>رسوم التوصيل</span><span>${deliveryFee === 0 ? '<span class="free-delivery-label">مجاني</span>' : formatPrice(deliveryFee)}</span></div>
     `;
     if (discount > 0) {
-      summaryHtml += `<div class="cart-summary-row"><span class="discount">الخصم (${appliedPromo.code})</span><span class="discount">-${formatPrice(discount)}</span></div>`;
+      summaryHtml += `<div class="cart-summary-row"><span class="discount">الخصم (${escapeHtml(appliedPromo.code)})</span><span class="discount">-${formatPrice(discount)}</span></div>`;
     }
     summaryHtml += `<div class="cart-summary-row total"><span>الإجمالي</span><span>${formatPrice(total)}</span></div>`;
     $('#cartSummaryRows').innerHTML = summaryHtml;
@@ -655,7 +655,7 @@
     </div>`;
     if (discount > 0) {
       html += `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:var(--success);">
-        <span>الخصم (${appliedPromo.code})</span>
+        <span>الخصم (${escapeHtml(appliedPromo.code)})</span>
         <span>-${formatPrice(discount)}</span>
       </div>`;
     }
